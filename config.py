@@ -14,19 +14,20 @@ class ApplicationConfig:
     SQLALCHEMY_ECHO = True
     SQLALCHEMY_DATABASE_URI = r"sqlite:///./db.sqlite"
 
-    # Update Gmail settings for sending emails
-    # Use port 587 for TLS (587 is the standard port for STARTTLS)
-    # MAIL_SERVER = 'smtp.googlemail.com'
-    # MAIL_PORT = 587
-    # MAIL_USERNAME = 'coldnightdev@gmail.com'
-    # MAIL_PASSWORD = "yhtjrvgxfycsncbb"
-    # MAIL_USE_TLS = True
-
     SESSION_TYPE = 'redis'
-    SESSION_REDIS = "redis://red-cj1163k07spjv9picbh0:6379"
+    REDIS_URL = "redis://red-cj1163k07spjv9picbh0:6379"
+    SESSION_REDIS = redis.from_url(REDIS_URL)
+    SESSION_KEY_PREFIX = "your_prefix_here"
     # SESSION_REDIS = redis_client
     SESSION_PERMANENT = False
     SESSION_USE_SIGNER = False
+    
+    MAIL_SERVER = 'smtp.elasticemail.com'
+    MAIL_PORT = 2525
+    MAIL_USERNAME = 'coldnightdev@gmail.com'
+    MAIL_PASSWORD = "DA79E471E994C2FBEC5BB9F44ABDF78CF139"
+    MAIL_USE_TLS = True
+    DATABASE_INITIALIZED = False
 
     JWT_ACCESS_TOKEN_EXPIRES = 3600
 

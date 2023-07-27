@@ -2,7 +2,6 @@ from functools import wraps
 from urllib.parse import urlencode
 import uuid
 from flask import Flask, redirect, render_template, request, jsonify, send_from_directory, session
-# from asgiref.wsgi import WsgiToAsgi
 from flask_bcrypt import Bcrypt
 from flask_cors import CORS, cross_origin
 from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
@@ -29,16 +28,11 @@ app = Flask(__name__)
 app.config.from_object(ApplicationConfig)
 CORS(app, allow_headers=True, supports_credentials=True)
 bcrypt = Bcrypt(app)
-#
 jwt = JWTManager(app)
-app.config['MAIL_SERVER'] = 'smtp.elasticemail.com'
-app.config['MAIL_PORT'] = 2525
-app.config['MAIL_USERNAME'] = 'coldnightdev@gmail.com'
-app.config['MAIL_PASSWORD'] = "DA79E471E994C2FBEC5BB9F44ABDF78CF139"
-app.config['MAIL_USE_TLS'] = True
-app.config['DATABASE_INITIALIZED'] = False
 mail = Mail(app)
 server_session = Session(app)
+
+
 db.init_app(app)
 with app.app_context():
     if not app.config['DATABASE_INITIALIZED']:
