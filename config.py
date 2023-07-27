@@ -1,10 +1,7 @@
 import hashlib
 import hmac
-from dotenv import load_dotenv
 import os
 import redis
-
-load_dotenv()
 
 
 class ApplicationConfig:

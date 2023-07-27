@@ -1,5 +1,4 @@
 from functools import wraps
-import hmac
 from urllib.parse import urlencode
 import uuid
 from flask import Flask, redirect, render_template, request, jsonify, send_from_directory, session
@@ -8,12 +7,10 @@ from flask_cors import CORS, cross_origin
 from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
 from flask_session import Session
 from models import SuccessfulPayment
-from config import ApplicationConfig, generate_verification_token, verify_verification_token
+from config import ApplicationConfig
 from werkzeug.utils import secure_filename
 from models import Role, db, User, create_roles
-from datetime import datetime
 import os
-from io import BytesIO
 import requests
 import string
 import random
