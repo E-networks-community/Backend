@@ -9,3 +9,4 @@ flask_sqlalchemy
 sqlalchemy
 redis
 python-dotenv
+requests
