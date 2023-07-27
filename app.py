@@ -43,13 +43,14 @@ db.init_app(app)
 with app.app_context():
     if not app.config['DATABASE_INITIALIZED']:
         db.create_all()
+        create_roles()
         app.config['DATABASE_INITIALIZED'] = True
-        #
     else:
         # If the database has already been initialized, create roles only
         with app.app_context():
             db.drop_all()
             db.create_all()
+            create_roles()
 ####################################################################
 ####################################################################
 ####################################################################
