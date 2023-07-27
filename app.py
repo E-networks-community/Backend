@@ -2,6 +2,7 @@ from functools import wraps
 from urllib.parse import urlencode
 import uuid
 from flask import Flask, redirect, render_template, request, jsonify, send_from_directory, session
+from asgiref.wsgi import WsgiToAsgi
 from flask_bcrypt import Bcrypt
 from flask_cors import CORS, cross_origin
 from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
@@ -24,6 +25,7 @@ import base64
 ####################################################################
 ######### Initializing the app with the necessary packages #########
 app = Flask(__name__)
+app_asgi = WsgiToAsgi(app)
 app.config.from_object(ApplicationConfig)
 CORS(app, allow_headers=True, supports_credentials=True)
 bcrypt = Bcrypt(app)
@@ -563,47 +565,103 @@ def reset_password():
     return jsonify(message='Password updated successfully'), 200
 
 
+# @app.route('/users', methods=['GET'])
+# def get_all_users():
+#     users = User.query.all()
+#     user_data = [{
+#         'id': user.id,
+#         # 'full_name': user.full_name,
+#         'first_name': user.first_name,
+#         'last_name': user.last_name,
+#         'email': user.email,
+#         'profile_image': user.profile_image,
+#         'has_paid': user.has_paid,
+#         'role': user.role.role_name,
+#         'created_at': user.created_at,
+#         'modified_at': user.modified_at,
+#         "is_email_verified": user.is_email_verified
+#     } for user in users]
+#     return jsonify(user_data)
+
 @app.route('/users', methods=['GET'])
 def get_all_users():
-    users = User.query.all()
-    user_data = [{
-        'id': user.id,
-        # 'full_name': user.full_name,
-        'first_name': user.first_name,
-        'last_name': user.last_name,
-        'email': user.email,
-        'profile_image': user.profile_image,
-        'has_paid': user.has_paid,
-        'role': user.role.role_name,
-        'created_at': user.created_at,
-        'modified_at': user.modified_at,
-        "is_email_verified": user.is_email_verified
-    } for user in users]
-    return jsonify(user_data)
+    try:
+        users = User.query.all()
+        user_data = []
 
+        for user in users:
+            if user.role:  # Check if user.role is not None
+                user_item = {
+                    'id': user.id,
+                    'first_name': user.first_name,
+                    'last_name': user.last_name,
+                    'email': user.email,
+                    'role': user.role.role_name,  # Access role_name only if user.role is not None
+                }
+            else:
+                # Handle the case where user.role is None (e.g., set a default role name)
+                user_item = {
+                    'id': user.id,
+                    'first_name': user.first_name,
+                    'last_name': user.last_name,
+                    'email': user.email,
+                    'role': 'Default Role',  # Set a default role name
+                }
+
+            user_data.append(user_item)
+
+        return jsonify(user_data), 200
+    except Exception as e:
+        print(e)
+        return jsonify(message='An error occurred while fetching users'), 500
+
+
+# @app.route('/users/<user_id>', methods=['GET'])
+# def get_user_by_id(user_id):
+#     user = User.query.get(user_id)
+#     if not user:
+#         return jsonify({'message': 'User not found'}), 404
+
+#     user_data = {
+#         'id': user.id,
+#         # 'full_name': user.full_name,
+#         'first_name': user.first_name,
+#         'last_name': user.last_name,
+#         'email': user.email,
+#         # 'profile_pic': user.profile_pic,
+#         "earnings": user.earnings,
+#         'role': user.role.role_name if user.role else None,
+#         'created_at': user.created_at,
+#         'modified_at': user.modified_at,
+#         "is_email_verified": user.is_email_verified,
+#         "refered_by_id": user.ref
+#     }
+
+#     return jsonify(user_data)
 
 @app.route('/users/<user_id>', methods=['GET'])
 def get_user_by_id(user_id):
-    user = User.query.get(user_id)
-    if not user:
-        return jsonify({'message': 'User not found'}), 404
-
-    user_data = {
-        'id': user.id,
-        # 'full_name': user.full_name,
-        'first_name': user.first_name,
-        'last_name': user.last_name,
-        'email': user.email,
-        # 'profile_pic': user.profile_pic,
-        "earnings": user.earnings,
-        'role': user.role.role_name,
-        'created_at': user.created_at,
-        'modified_at': user.modified_at,
-        "is_email_verified": user.is_email_verified,
-        "refered_by_id": user.ref
-    }
-
-    return jsonify(user_data)
+    try:
+        user = User.query.get(user_id)
+        if user:
+            user_data = {
+                'id': user.id,
+                'first_name': user.first_name,
+                'last_name': user.last_name,
+                'email': user.email,
+                'profile_image': user.profile_image,
+                "earnings": user.earnings,
+                'role': user.role.role_name if user.role else None,
+                'created_at': user.created_at,
+                'modified_at': user.modified_at,
+                "is_email_verified": user.is_email_verified
+            }
+            return jsonify(user_data), 200
+        else:
+            return jsonify(message='User not found'), 404
+    except Exception as e:
+        print(e)
+        return jsonify(message='An error occurred while fetching the user'), 500
 
 
 @app.route('/referral/<referral_code>', methods=['POST'])
