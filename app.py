@@ -2,7 +2,7 @@ from functools import wraps
 from urllib.parse import urlencode
 import uuid
 from flask import Flask, redirect, render_template, request, jsonify, send_from_directory, session
-from asgiref.wsgi import WsgiToAsgi
+# from asgiref.wsgi import WsgiToAsgi
 from flask_bcrypt import Bcrypt
 from flask_cors import CORS, cross_origin
 from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
@@ -25,7 +25,7 @@ import base64
 ####################################################################
 ######### Initializing the app with the necessary packages #########
 app = Flask(__name__)
-app_asgi = WsgiToAsgi(app)
+# app_asgi = WsgiToAsgi(app)
 app.config.from_object(ApplicationConfig)
 CORS(app, allow_headers=True, supports_credentials=True)
 bcrypt = Bcrypt(app)
@@ -901,7 +901,5 @@ def logout():
     return jsonify({"message": "Logged out successfully"}), 200
 
 
-if __name__ == '__main__':
-    import uvicorn
-    uvicorn.run(app, host='0.0.0.0', port=8000)
-    
+if __name__ == "__main__":
+    app.run(debug=True)

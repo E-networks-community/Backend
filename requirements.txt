@@ -12,3 +12,4 @@ python-dotenv
 asgiref
 uvicorn
 requests
+waitress
