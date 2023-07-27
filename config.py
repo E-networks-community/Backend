@@ -6,7 +6,7 @@ import redis
 
 class ApplicationConfig:
 
-    redis_client = redis.Redis()
+    # redis_client = redis.Redis()
 
     SECRET_KEY = "my_secret_key_123"
 
@@ -23,7 +23,8 @@ class ApplicationConfig:
     # MAIL_USE_TLS = True
 
     SESSION_TYPE = 'redis'
-    SESSION_REDIS = redis_client
+    SESSION_REDIS = "redis://red-cj1163k07spjv9picbh0:6379"
+    # SESSION_REDIS = redis_client
     SESSION_PERMANENT = False
     SESSION_USE_SIGNER = False
 
