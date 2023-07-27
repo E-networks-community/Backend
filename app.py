@@ -901,5 +901,7 @@ def logout():
     return jsonify({"message": "Logged out successfully"}), 200
 
 
-if __name__ == "__main__":
-    app.run(debug=True)
+if __name__ == '__main__':
+    import uvicorn
+    uvicorn.run(app, host='0.0.0.0', port=8000)
+    
