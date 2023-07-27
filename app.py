@@ -29,20 +29,27 @@ app = Flask(__name__)
 app.config.from_object(ApplicationConfig)
 CORS(app, allow_headers=True, supports_credentials=True)
 bcrypt = Bcrypt(app)
+#
 jwt = JWTManager(app)
 app.config['MAIL_SERVER'] = 'smtp.elasticemail.com'
 app.config['MAIL_PORT'] = 2525
 app.config['MAIL_USERNAME'] = 'coldnightdev@gmail.com'
 app.config['MAIL_PASSWORD'] = "DA79E471E994C2FBEC5BB9F44ABDF78CF139"
 app.config['MAIL_USE_TLS'] = True
+app.config['DATABASE_INITIALIZED'] = False
 mail = Mail(app)
 server_session = Session(app)
 db.init_app(app)
-
 with app.app_context():
-    # db.drop_all()
-    db.create_all()
-    # create_roles()
+    if not app.config['DATABASE_INITIALIZED']:
+        db.create_all()
+        app.config['DATABASE_INITIALIZED'] = True
+        #
+    else:
+        # If the database has already been initialized, create roles only
+        with app.app_context():
+            db.drop_all()
+            db.create_all()
 ####################################################################
 ####################################################################
 ####################################################################
