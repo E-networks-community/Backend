@@ -62,8 +62,8 @@ with app.app_context():
 @app.after_request
 def add_cors_headers(response):
     # Replace with your frontend domain
-    # frontend_domain = 'https://www.enetworksagencybanking.com.ng/'
-    frontend_domain = 'http://localhost:3000'
+    frontend_domain = 'https://www.enetworksagencybanking.com.ng/'
+    # frontend_domain = 'http://localhost:3000'
     response.headers['Access-Control-Allow-Origin'] = frontend_domain
     response.headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'
     response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
