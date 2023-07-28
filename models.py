@@ -66,6 +66,7 @@ class User(db.Model):
             'referral_link': self.referral_link,
             'referred_me': referred_me,  # Set the referred_me attribute to the ID of the referrer
             'role_id': self.role_id,
+            'role': self.role.role_name,
             'created_at': str(self.created_at),
             'modified_at': str(self.modified_at),
             'is_email_verified': str(self.is_email_verified),

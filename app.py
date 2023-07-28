@@ -2,6 +2,7 @@ from functools import wraps
 from urllib.parse import urlencode
 import uuid
 from flask import Flask, redirect, render_template, request, jsonify, send_from_directory, session
+# from asgiref.wsgi import WsgiToAsgi
 from flask_bcrypt import Bcrypt
 from flask_cors import CORS, cross_origin
 from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
@@ -28,11 +29,16 @@ app = Flask(__name__)
 app.config.from_object(ApplicationConfig)
 CORS(app, allow_headers=True, supports_credentials=True)
 bcrypt = Bcrypt(app)
+#
 jwt = JWTManager(app)
+app.config['MAIL_SERVER'] = 'smtp.elasticemail.com'
+app.config['MAIL_PORT'] = 2525
+app.config['MAIL_USERNAME'] = 'coldnightdev@gmail.com'
+app.config['MAIL_PASSWORD'] = "DA79E471E994C2FBEC5BB9F44ABDF78CF139"
+app.config['MAIL_USE_TLS'] = True
+app.config['DATABASE_INITIALIZED'] = False
 mail = Mail(app)
 server_session = Session(app)
-
-
 db.init_app(app)
 with app.app_context():
     if not app.config['DATABASE_INITIALIZED']:
@@ -56,7 +62,8 @@ with app.app_context():
 @app.after_request
 def add_cors_headers(response):
     # Replace with your frontend domain
-    frontend_domain = 'https://www.enetworksagencybanking.com.ng/'
+    # frontend_domain = 'https://www.enetworksagencybanking.com.ng/'
+    frontend_domain = 'http://localhost:3000'
     response.headers['Access-Control-Allow-Origin'] = frontend_domain
     response.headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'
     response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
@@ -445,7 +452,6 @@ def dashboard():
 
     # Get the list of referred users and their email verification status
     referral_list = user.get_referral_list()
-
     # Add the referral list to the user data dictionary
     user_data['referral_list'] = referral_list
 
@@ -828,23 +834,6 @@ def verify_payment(user_id):
             user.payment_reference = transaction_reference
             db.session.commit()
 
-            # Check if the user was referred by another user
-            if user.referred_me:
-                # Get the referrer's ID from the 'referred_me' attribute
-                referrer_id = user.referred_me.id
-                referrer = User.query.get(referrer_id)
-                if referrer:
-                    # Add 10% of the payment amount to the referrer's earnings for every successful payment
-                    payment_amount = 1500  # Change this to the actual payment amount
-                    referrer.add_earnings(payment_amount * 0.1)
-
-                    # Commit the changes to the database
-                    try:
-                        db.session.commit()
-                    except Exception as e:
-                        db.session.rollback()
-                        print("Error updating referrer's earnings:", str(e))
-
             # Redirect to the desired URL or return a response indicating the payment was successful
             return redirect("https://www.enetworksagencybanking.com.ng/user/dashboard")
 
@@ -894,6 +883,32 @@ def update_profile_image():
         return jsonify({"error": "Failed to read and encode profile image"}), 500
 
     return redirect("https://www.enetworksagencybanking.com.ng/user/dashboard")
+
+
+@app.route('/admins', methods=['GET'])
+def get_all_admins():
+    # Query the database to get all users with the 'Admin' role
+    admins = User.query.join(Role).filter_by(role_name='Admin').all()
+
+    # Convert the list of admins to dictionaries and return as JSON response
+    admins_data = [{
+        'id': admin.id,
+        'first_name': admin.first_name,
+        'last_name': admin.last_name,
+        'email': admin.email,
+        'role': admin.role.role_name,
+    } for admin in admins]
+    return jsonify(admins_data)
+
+
+@app.route('/interns', methods=['GET'])
+def get_all_interns():
+    # Query the database to get all users with the 'Intern' role
+    interns = User.query.join(Role).filter_by(role_name='Mobilizers').all()
+
+    # Convert the list of interns to dictionaries and return as JSON response
+    interns_data = [intern.to_dict() for intern in interns]
+    return jsonify(interns_data)
 
 
 @app.route("/logout", methods=["POST"])

@@ -9,7 +9,3 @@ flask_sqlalchemy
 sqlalchemy
 redis
 python-dotenv
-asgiref
-uvicorn
-requests
-waitress
