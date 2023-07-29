@@ -33,6 +33,7 @@ class User(db.Model):
     phone_number = db.Column(db.String(20))
     referral_code = db.Column(db.String(10), unique=True, nullable=True)
     referral_link = db.Column(db.String(100), unique=True, nullable=True)
+    otps = db.relationship('OTP', backref='user', lazy='dynamic')
     # New column to store the referrer's ID
     referred_by_id = db.Column(
         db.String(36), db.ForeignKey('user.id'), nullable=True)
@@ -71,8 +72,12 @@ class User(db.Model):
             'modified_at': str(self.modified_at),
             'is_email_verified': str(self.is_email_verified),
             'earnings': self.earnings,
-            'profile_image': str(self.profile_image)
+            'profile_image': str(self.profile_image),
+            'total_referred_users': self.get_total_referred_users(),  # Add this line to include total_referred_users
         }
+
+    def get_total_referred_users(self):
+        return self.referred_users.count()
 
     def __repr__(self):
         return f"<User {self.first_name} + {self.last_name}>"
@@ -106,7 +111,7 @@ def create_roles():
     roles_data = [
         {'role_name': 'Super Admin'},
         {'role_name': 'Admin'},
-        {'role_name': 'Onboarder'},
+        {'role_name': 'Mobilizer'},
         {'role_name': 'Intern'},
         {'role_name': 'Agent'},
         {'role_name': 'User'},
@@ -121,3 +126,15 @@ def create_roles():
             db.session.add(new_role)
 
     db.session.commit()
+
+
+class OTP(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.String(36), db.ForeignKey(
+        'user.id'), nullable=False)
+    email = db.Column(db.String(100), nullable=False)
+    otp = db.Column(db.String(6), nullable=False)
+    timestamp = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def __repr__(self):
+        return f"<OTP for {self.email}>"

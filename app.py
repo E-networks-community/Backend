@@ -1,4 +1,6 @@
+# from flask_jwt_extended import jwt_required, get_jwt_identity, get_jwt_claims
 from functools import wraps
+import json
 from urllib.parse import urlencode
 import uuid
 from flask import Flask, redirect, render_template, request, jsonify, send_from_directory, session
@@ -7,7 +9,7 @@ from flask_bcrypt import Bcrypt
 from flask_cors import CORS, cross_origin
 from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
 from flask_session import Session
-from models import SuccessfulPayment
+from models import SuccessfulPayment, OTP
 from config import ApplicationConfig
 from werkzeug.utils import secure_filename
 from models import Role, db, User, create_roles
@@ -42,6 +44,7 @@ server_session = Session(app)
 db.init_app(app)
 with app.app_context():
     if not app.config['DATABASE_INITIALIZED']:
+        # db.drop_all()
         db.create_all()
         create_roles()
         app.config['DATABASE_INITIALIZED'] = True
@@ -62,8 +65,8 @@ with app.app_context():
 @app.after_request
 def add_cors_headers(response):
     # Replace with your frontend domain
-    frontend_domain = 'https://www.enetworksagencybanking.com.ng'
-    # frontend_domain = 'http://localhost:3000'
+    # frontend_domain = 'https://www.enetworksagencybanking.com.ng'
+    frontend_domain = 'https://enetworksagencybanking.com.ng'
     response.headers['Access-Control-Allow-Origin'] = frontend_domain
     response.headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'
     response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
@@ -282,14 +285,9 @@ def register_intern():
     return register_user(role_name='Intern')
 
 
-@app.route('/user/register', methods=['POST'])
-def register_user():
-    return register_user(role_name='User')
-
-
-@app.route('/onboarder/register', methods=['POST'])
-def register_onboarder():
-    return register_user(role_name='Onboarder')
+@app.route('/mobilizer/register', methods=['POST'])
+def register_mobilizer():
+    return register_user(role_name='Mobilizer')
 
 ####################################################################
 ####################################################################
@@ -300,9 +298,15 @@ def register_onboarder():
 
 
 def register_user(role_name, referrer_id=None):
-    data = request.json
+    # Use request.form.to_dict() to get the form data (excluding files)
+    data = request.form.to_dict()
+    profile_image = request.files.get('profile_image')
+
     if not data:
         return jsonify(message='No data provided in the request'), 400
+
+    if not profile_image:
+        return jsonify(message='Profile image is required'), 400
 
     # Extract user registration data from the JSON request
     first_name = data.get('first_name')
@@ -343,54 +347,142 @@ def register_user(role_name, referrer_id=None):
         password=hashed_password,
         phone_number=phone_number,
         referral_code=new_user_referral_code,
-        role=role
+        role=role,
+        referred_by_id=referrer_id  # Assign the referrer's ID if available
     )
-
-    if referrer_id is not None:
-        new_user.referred_me = referrer_id
 
     try:
         db.session.add(new_user)
         db.session.commit()
 
-        # Generate an OTP for email verification
-        email_verification_otp = generate_otp()
+        if profile_image and allowed_file(profile_image.filename):
+            filename = save_profile_image(profile_image, new_user.id)
+            new_user.profile_image = filename
 
-        # Send the OTP to the user's email
-        send_otp_to_email_for_verify(
-            new_user.email, email_verification_otp)
-
-        # Save the OTP in the user's session for verification later
-        session['email_verification_otp'] = email_verification_otp
-
+        # Save the referral link before committing the user object
         new_user.referral_link = new_user.generate_referral_link()
+
+        # Commit the user object with the referral link and profile image (if any)
         db.session.commit()
 
-        return jsonify(message='User registered successfully'), 201
+        email_verification_otp = generate_otp()
+
+        otp = OTP(user_id=new_user.id, email=new_user.email,
+                  otp=email_verification_otp)
+
+        db.session.add(otp)
+        db.session.commit()
+
+        # Send the OTP to the user's email for verification
+        send_otp_to_email_for_verify(new_user.email, email_verification_otp)
+
+        # Save the OTP in the user's session for verification later
+        identity = {"user_id": str(new_user.id),
+                    "email_verification_otp": email_verification_otp}
+        access_token = create_access_token(identity=json.dumps(identity))
+
+        return jsonify({"access_token": access_token, "role": new_user.role.role_name, "otp": email_verification_otp}), 200
     except Exception as e:
         db.session.rollback()
+        # Add this line to print the error
         print("Error during user registration:", str(e))
         return jsonify(message='Failed to register user. Please try again later.'), 500
 
 
 @app.route('/login', methods=["POST"])
 def login():
-    # full_name = request.json.get('full_name')
     email = request.json.get('email')
     password = request.json.get('password')
 
     user = User.query.filter_by(email=email).first()
 
-    if user is None:
+    if user is None or not bcrypt.check_password_hash(user.password, password):
         return jsonify({"error": "Unauthorized"}), 401
 
-    if not bcrypt.check_password_hash(user.password, password):
-        return jsonify({"error": "Unauthorized"}), 401
+    # Create the access token with the user ID as the identity
+    access_token = create_access_token(identity=str(user.id))
 
-    access_token = create_access_token(identity=user.id)
-
-    # Return the user's role along with the access token
+    # Return the access token and user role as JSON response
     return jsonify({"access_token": access_token, "role": user.role.role_name}), 200
+
+
+@app.route('/verify-email', methods=['POST'])
+@jwt_required()
+def verify_email():
+    try:
+        user_id = get_jwt_identity()
+        user = User.query.filter_by(id=user_id).first()
+
+        if not user:
+            return jsonify(message='User not found'), 404
+
+        data = request.form
+        email_verification_otp = data.get('otp')
+        email = user.email
+
+        if not email_verification_otp or not email:
+            return jsonify(message='OTP and email fields are required'), 400
+
+        # Get the OTP from the OTP table based on the user's email
+        otp_entry = OTP.query.filter_by(user_id=user_id, email=email).first()
+
+        if not otp_entry:
+            return jsonify(message='OTP entry not found'), 404
+
+        stored_otp = otp_entry.otp
+
+        if stored_otp != email_verification_otp:
+            return jsonify(message='Invalid OTP'), 401
+
+        if user.is_email_verified:
+            return jsonify(message="You have already verified your email"), 200
+
+        # Mark the user's email as verified
+        user.is_email_verified = True
+        db.session.commit()
+
+        # Remove the OTP entry from the OTP table after successful verification
+        db.session.delete(otp_entry)
+        db.session.commit()
+
+        return jsonify(message='Email verified successfully'), 200
+
+    except KeyError:
+        return jsonify(message='Invalid JWT token'), 401
+    except Exception as e:
+        db.session.rollback()
+        print("Error during email verification:", str(e))
+        return jsonify(message='Failed to verify email. Please try again later.'), 500
+
+
+@app.route('/referral/<referral_code>', methods=['POST'])
+def register_with_referral(referral_code):
+    data = request.form.to_dict()
+    email = data.get('email')
+    password = data.get('password')
+    first_name = data.get('first_name')
+    last_name = data.get('last_name')
+    phone_number = data.get('phone_number')
+    profile_image = request.files.get('profile_image')
+
+    if not all([email, password, first_name, last_name, phone_number, profile_image]):
+        return jsonify(message='Missing required fields in the request'), 400
+
+    # Check if the referral code exists and get the referrer user
+    referrer = User.query.filter_by(referral_code=referral_code).first()
+    if not referrer:
+        return jsonify(message='Invalid referral code provided'), 400
+
+    if User.query.filter_by(email=email).first():
+        return jsonify(message='Email already registered'), 409
+
+    try:
+        # Call the register_user function with the role_name "Intern" and referrer_id
+        register_user("Intern", referrer.id)
+    except ValueError as e:
+        return jsonify(message=str(e)), 400
+
+    return jsonify(message="Register complete"), 200
 
 
 @app.route('/edit-user/<user_id>', methods=['PATCH'])
@@ -441,6 +533,8 @@ def edit_user(user_id):
 def dashboard():
     user_id = get_jwt_identity()
 
+    print(f"This is the user ID: {user_id}")
+
     # Query the database to fetch the user's data
     user = User.query.filter_by(id=user_id).first()
 
@@ -457,39 +551,6 @@ def dashboard():
 
     # Return the user's data as a JSON response
     return jsonify(user_data), 200
-
-
-@app.route('/verify-email', methods=['POST'])
-@jwt_required()
-def verify_email():
-    data = request.form  # Use request.form instead of request.json
-    email_verification_otp = data.get('otp')
-    user_id = get_jwt_identity()
-
-    user = User.query.filter_by(id=user_id).first()
-
-    if not user:
-        return jsonify(message='User not found'), 404
-
-    email = user.email
-    print(f"This is the user Email {email}")
-    stored_otp = session.get('email_verification_otp')
-
-    if not email_verification_otp or not email:
-        return jsonify(message='OTP and email fields are required'), 400
-
-    if stored_otp != email_verification_otp:
-        return jsonify(message='Invalid OTP'), 401
-
-    if user.is_email_verified == "True":
-        return jsonify(message="You have already verified your email")
-
-    user.is_email_verified = True
-    db.session.commit()
-
-    session.pop('email_verification_otp', None)
-
-    return jsonify(message='Email verified successfully'), 200
 
 
 @app.route('/resend-otp', methods=['POST'])
@@ -672,32 +733,6 @@ def get_user_by_id(user_id):
         return jsonify(message='An error occurred while fetching the user'), 500
 
 
-@app.route('/referral/<referral_code>', methods=['POST'])
-def register_with_referral(referral_code):
-    data = request.json
-    email = data.get('email')
-    password = data.get('password')
-    first_name = data.get('first_name')
-    last_name = data.get('last_name')
-    phone_number = data.get('phone_number')
-
-    if not all([email, password, first_name, last_name, phone_number]):
-        return jsonify(message='Missing required fields in the request'), 400
-
-    # Check if the referral code exists and get the referrer user
-    referrer = User.query.filter_by(referral_code=referral_code).first()
-    if not referrer:
-        return jsonify(message='Invalid referral code provided'), 400
-
-    if User.query.filter_by(email=email).first():
-        return jsonify(message='Email already registered'), 409
-
-    # Call the modified register_user function with the referrer ID
-    result = register_user('User', referrer_id=referrer)
-
-    return jsonify(message="Register complete"), 200
-
-
 @app.route('/get/<referral_code>', methods=['GET'])
 def check_ref_code(referral_code):
     referrer = User.query.filter_by(referral_code=referral_code).first()
@@ -733,7 +768,7 @@ def initialize_payment():
                 "request_type": "test",
                 "merchant_tx_ref": transaction_reference,
                 # Manually construct the redirect_url with query parameters
-                "redirect_url": f"http://localhost:5000/pay/{user_id}/verify",
+                "redirect_url": f"https://enetworksagencybanking.com.ng/pay/{user_id}/verify",
                 "name": user.first_name,
                 "email_address": user.email,
                 "phone_number": user.phone_number,
@@ -761,7 +796,7 @@ def initialize_payment():
             payment_url = data["url"]
 
             # Remove the extra "?" from the redirect_url before the "status" parameter
-            redirect_url = f"http://localhost:5000/pay/{user_id}/verify"
+            redirect_url = f"https://enetworksagencybanking.com.ng/pay/{user_id}/verify"
             # Update the user's payment reference in the database
             user.payment_reference = redirect_url
             db.session.commit()
