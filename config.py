@@ -1,12 +1,12 @@
 import hashlib
 import hmac
-import os
+# import os
 import redis
 
 
 class ApplicationConfig:
 
-    redis_client = redis.Redis()
+    # redis_client = redis.Redis()
 
     SECRET_KEY = "my_secret_key_123"
 
@@ -16,9 +16,9 @@ class ApplicationConfig:
 
     SESSION_TYPE = 'redis'
     REDIS_URL = "redis://red-cj1163k07spjv9picbh0:6379"
-    # SESSION_REDIS = redis.from_url(REDIS_URL)
-    # SESSION_KEY_PREFIX = "your_prefix_here"
-    SESSION_REDIS = redis_client
+    SESSION_REDIS = redis.from_url(REDIS_URL)
+    SESSION_KEY_PREFIX = "your_prefix_here"
+    # SESSION_REDIS = redis_client
     SESSION_PERMANENT = False
     SESSION_USE_SIGNER = False
 
