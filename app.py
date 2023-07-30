@@ -367,8 +367,9 @@ def register_user(role_name, referrer_id=None):
         phone_number=phone_number,
         referral_code=new_user_referral_code,
         role=role,
-        referred_by_id=referrer_id  # Assign the referrer's ID if available
     )
+    if referrer_id is not None:
+        new_user.referred_me = referrer_id
 
     try:
         db.session.add(new_user)
@@ -388,7 +389,6 @@ def register_user(role_name, referrer_id=None):
 
         otp = OTP(user_id=new_user.id, email=new_user.email,
                   otp=email_verification_otp)
-
         db.session.add(otp)
         db.session.commit()
 
@@ -396,14 +396,13 @@ def register_user(role_name, referrer_id=None):
         send_otp_to_email_for_verify(new_user.email, email_verification_otp)
 
         # Save the OTP in the user's session for verification later
-        identity = {"user_id": str(new_user.id),
-                    "email_verification_otp": email_verification_otp}
+        identity = {"user_id": str(
+            new_user.id), "email_verification_otp": email_verification_otp}
         access_token = create_access_token(identity=json.dumps(identity))
 
         return jsonify({"access_token": access_token, "role": new_user.role.role_name, "otp": email_verification_otp}), 200
     except Exception as e:
         db.session.rollback()
-        # Add this line to print the error
         print("Error during user registration:", str(e))
         return jsonify(message='Failed to register user. Please try again later.'), 500
 
