@@ -785,7 +785,7 @@ def initialize_payment():
                 "request_type": "test",
                 "merchant_tx_ref": transaction_reference,
                 # Manually construct the redirect_url with query parameters
-                "redirect_url": f"https://enetworksagencybanking.com.ng/pay/{user_id}/verify",
+                "redirect_url": f"https://enetworks.onrender.com/pay/{user_id}/verify",
                 "name": user.first_name,
                 "email_address": user.email,
                 "phone_number": user.phone_number,
@@ -813,7 +813,7 @@ def initialize_payment():
             payment_url = data["url"]
 
             # Remove the extra "?" from the redirect_url before the "status" parameter
-            redirect_url = f"https://enetworksagencybanking.com.ng/pay/{user_id}/verify"
+            redirect_url = f"https://enetworks.onrender.com/pay/{user_id}/verify"
             # Update the user's payment reference in the database
             user.payment_reference = redirect_url
             db.session.commit()
@@ -869,7 +869,7 @@ def verify_payment(user_id):
 
             if existing_payment:
                 # Payment has already been processed, do not update earnings again
-                return redirect("https://www.enetworksagencybanking.com.ng/user/dashboard")
+                return redirect("https://www.enetworksagencybanking.com.ng/interns/dashboard")
 
             # Save the successful payment record to prevent duplicate earnings updates
             successful_payment = SuccessfulPayment(
@@ -889,7 +889,7 @@ def verify_payment(user_id):
             db.session.commit()
 
             # Redirect to the desired URL or return a response indicating the payment was successful
-            return redirect("https://www.enetworksagencybanking.com.ng/user/dashboard")
+            return redirect("https://www.enetworksagencybanking.com.ng/interns/dashboard")
 
         # Return a response indicating the payment was not successful
         response = {
@@ -936,12 +936,20 @@ def update_profile_image():
     except Exception as e:
         return jsonify({"error": "Failed to read and encode profile image"}), 500
 
-    return redirect("https://www.enetworksagencybanking.com.ng/user/dashboard")
+    return redirect("https://www.enetworksagencybanking.com.ng/interns/dashboard")
 
 
 @app.route('/admins', methods=['GET'])
+@jwt_required()
 def get_all_admins():
     # Query the database to get all users with the 'Admin' role
+    user_id = get_jwt_identity()
+
+    user = User.query.filter_by(id=user_id).first()
+
+    if not user:
+        return jsonify(message='User not found'), 404
+
     admins = User.query.join(Role).filter_by(role_name='Admin').all()
 
     # Convert the list of admins to dictionaries and return as JSON response
@@ -956,8 +964,16 @@ def get_all_admins():
 
 
 @app.route('/interns', methods=['GET'])
+@jwt_required()
 def get_all_interns():
     # Query the database to get all users with the 'Intern' role
+    user_id = get_jwt_identity()
+
+    user = User.query.filter_by(id=user_id).first()
+
+    if not user:
+        return jsonify(message='User not found'), 404
+
     interns = User.query.join(Role).filter_by(role_name='Mobilizers').all()
 
     # Convert the list of interns to dictionaries and return as JSON response
