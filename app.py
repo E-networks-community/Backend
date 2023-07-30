@@ -65,8 +65,8 @@ with app.app_context():
 @app.after_request
 def add_cors_headers(response):
     # Replace with your frontend domain
-    # frontend_domain = 'https://www.enetworksagencybanking.com.ng'
-    frontend_domain = 'https://enetworksagencybanking.com.ng'
+    frontend_domain = 'https://www.enetworksagencybanking.com.ng'
+    # frontend_domain = 'http://loclahost:3000'
     response.headers['Access-Control-Allow-Origin'] = frontend_domain
     response.headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'
     response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
@@ -171,6 +171,29 @@ def send_otp_to_email_for_reset(email, otp):
         print(e)
         return jsonify(message='An error occurred while sending the email'), 500
 
+# @app.route("/send_email/<email>/<otp>", methods=["GET"])
+
+
+def send_reciept_to_user(email, user_name):
+    subject = "E-networks Digital Card Reciept"
+
+    msg_body = f"Welcome, {user_name}\n\n" \
+               f"You have successfully Enrolled for the E-Networks Technologies Ltd 1Million E-NAIRA/REGULAR POS AGENT INTERNSHIP PROGRAM.\n" \
+               f"Please await your letter of engagement after your training.\n\n" \
+               f"You are to join the Telegram groupvia this link immediately \n\n" \
+               f"https://t.me/+VOi70dUobeU1YTBk.\n\n" \
+               f"1Million E-NAIRA/REGULAR POS AGENT INTERNSHIP PROGRAM"
+
+    try:
+        result = send_email_with_no_otp(
+            email, subject, 'reciept', user_name=user_name, msg_body=msg_body)
+        if result:
+            return "Email sent.....", 200
+        else:
+            return jsonify(message='Failed to send email'), 500
+    except Exception as e:
+        print(e)
+        return jsonify(message='An error occurred while sending the email'), 500
 ####################################################################
 ####################################################################
 ####################################################################
@@ -190,22 +213,18 @@ def send_email_with_otp(to, subject, template, otp, **kwargs):
         return False
 
 
-@app.route('/send_email')
-def send_test_email():
-    recipient_email = 'coldnightdev@gmail.com'
-    email_subject = 'E-network Email Verification'
-    template = 'verify_email'
+def send_email_with_no_otp(to, subject, template, user_name, **kwargs):
+    msg = Message(subject, recipients=[to], sender=app.config['MAIL_USERNAME'])
+    msg.body = "Hello"
+    msg.html = render_template(
+        template + '.html', user_email=to, user_name=user_name, **kwargs)
 
-    # Generate a random OTP (you can use your own method to generate the OTP)
-    otp = str(random.randint(100000, 999999))
-
-    # Call the send_email_with_otp function to send the email with the OTP
-    if send_email_with_otp(recipient_email, email_subject, template, otp):
-        print(f'Email with OTP ({otp}) sent successfully to {recipient_email}')
-        return 'Email sent successfully'  # Return a valid response
-    else:
-        print('Failed to send email')
-        return 'Failed to send email'  # Return a valid response
+    try:
+        mail.send(msg)
+        return True
+    except Exception as e:
+        print(e)
+        return False
 
 ####################################################################
 ####################################################################
@@ -862,6 +881,8 @@ def verify_payment(user_id):
             )
             db.session.add(successful_payment)
             db.session.commit()
+
+            send_reciept_to_user(user.email, user.first_name)
 
             # Update the user's payment status if the payment is successful
             user.has_paid = True
