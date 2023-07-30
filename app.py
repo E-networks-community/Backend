@@ -367,9 +367,8 @@ def register_user(role_name, referrer_id=None):
         phone_number=phone_number,
         referral_code=new_user_referral_code,
         role=role,
+        referred_by_id=referrer_id
     )
-    if referrer_id is not None:
-        new_user.referred_me = referrer_id
 
     try:
         db.session.add(new_user)
