@@ -880,7 +880,7 @@ def verify_payment(user_id):
 
             if existing_payment:
                 # Payment has already been processed, do not update earnings again
-                return redirect("https://www.enetworksagencybanking.com.ng/user/dashboard")
+                return redirect("https://www.enetworksagencybanking.com.ng/")
 
             # Save the successful payment record to prevent duplicate earnings updates
             successful_payment = SuccessfulPayment(
@@ -900,7 +900,7 @@ def verify_payment(user_id):
             db.session.commit()
 
             # Redirect to the desired URL or return a response indicating the payment was successful
-            return redirect("https://www.enetworksagencybanking.com.ng/user/dashboard")
+            return redirect("https://www.enetworksagencybanking.com.ng/")
 
         # Return a response indicating the payment was not successful
         response = {
@@ -947,7 +947,7 @@ def update_profile_image():
     except Exception as e:
         return jsonify({"error": "Failed to read and encode profile image"}), 500
 
-    return redirect("https://www.enetworksagencybanking.com.ng/user/dashboard")
+    return redirect("https://www.enetworksagencybanking.com.ng/")
 
 
 @app.route('/admins', methods=['GET'])
