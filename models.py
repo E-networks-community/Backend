@@ -51,7 +51,7 @@ class User(db.Model):
     # Relationships
     role = db.relationship('Role', backref='users')
     referred_me = db.relationship(
-        'User', remote_side=[id], backref='referred_by')
+        'User', remote_side=[id], backref='referred_by', overlaps="referred_users,referrer")
 
     def to_dict(self):
         # Get the ID of the referrer or None if no referrer
@@ -73,7 +73,8 @@ class User(db.Model):
             'is_email_verified': str(self.is_email_verified),
             'earnings': self.earnings,
             'profile_image': str(self.profile_image),
-            'total_referred_users': self.get_total_referred_users(),  # Add this line to include total_referred_users
+            # Add this line to include total_referred_users
+            'total_referred_users': self.get_total_referred_users(),
         }
 
     def get_total_referred_users(self):

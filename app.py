@@ -1,4 +1,5 @@
 # from flask_jwt_extended import jwt_required, get_jwt_identity, get_jwt_claims
+import datetime
 from functools import wraps
 import json
 from urllib.parse import urlencode
@@ -31,7 +32,6 @@ app = Flask(__name__)
 app.config.from_object(ApplicationConfig)
 CORS(app, allow_headers=True, supports_credentials=True)
 bcrypt = Bcrypt(app)
-#
 jwt = JWTManager(app)
 app.config['MAIL_SERVER'] = 'smtp.elasticemail.com'
 app.config['MAIL_PORT'] = 2525
@@ -65,8 +65,8 @@ with app.app_context():
 @app.after_request
 def add_cors_headers(response):
     # Replace with your frontend domain
-    frontend_domain = 'https://www.enetworksagencybanking.com.ng'
-    # frontend_domain = 'http://loclahost:3000'
+    # frontend_domain = 'https://www.enetworksagencybanking.com.ng'
+    frontend_domain = 'http://localhost:3000'
     response.headers['Access-Control-Allow-Origin'] = frontend_domain
     response.headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'
     response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
@@ -252,6 +252,14 @@ def send_otp_to_email_for_verify(email, otp):
     except Exception as e:
         print(e)
         return jsonify(message='An error occurred while sending the email'), 500
+####################################################################
+####################################################################
+####################################################################
+####################################################################
+####################################################################
+@app.route('/')
+def hello_world():
+    return 'Hello from Koyeb'
 ####################################################################
 ####################################################################
 ####################################################################
@@ -576,24 +584,30 @@ def resend_otp():
     user_id = get_jwt_identity()
 
     user = User.query.filter_by(id=user_id).first()
-
     if not user:
         return jsonify(message='User not found'), 404
 
-    email = user.email
+    # Generate a new OTP and update it in the database
+    new_otp = generate_otp()
+    otp_record = OTP.query.filter_by(user_id=user_id).first()
+    if otp_record:
+        otp_record.otp = new_otp
+        # otp_record.timestamp = datetime.utcnow()  # Update the timestamp
+    else:
+        otp_record = OTP(user_id=user_id, email=user.email, otp=new_otp)
+        db.session.add(otp_record)
 
-    # Generate a new OTP
-    email_verification_otp = generate_otp()
+    try:
+        db.session.commit()
 
-    # Send the OTP to the user's email
-    send_otp_to_email_for_verify(
-        email, email_verification_otp)
+        # Send the new OTP to the user's email for verification
+        send_otp_to_email_for_verify(user.email, new_otp)
 
-    # Save the OTP in the user's session for verification later
-    session['email_verification_otp'] = email_verification_otp
-
-    # Send the new OTP to the user's email (you can implement this using an email service)
-    return jsonify(message='New OTP sent successfully'), 200
+        return jsonify(message=f'New OTP has been sent to your email {new_otp}'), 200
+    except Exception as e:
+        db.session.rollback()
+        print("Error during OTP resend:", str(e))
+        return jsonify(message='Failed to resend OTP. Please try again later.'), 500
 
 
 @app.route('/forgot-password', methods=['POST'])
@@ -785,7 +799,7 @@ def initialize_payment():
                 "request_type": "test",
                 "merchant_tx_ref": transaction_reference,
                 # Manually construct the redirect_url with query parameters
-                "redirect_url": f"https://enetworks.onrender.com/pay/{user_id}/verify",
+                "redirect_url": f"https://enetworksagencybanking.com.ng/pay/{user_id}/verify",
                 "name": user.first_name,
                 "email_address": user.email,
                 "phone_number": user.phone_number,
@@ -813,7 +827,7 @@ def initialize_payment():
             payment_url = data["url"]
 
             # Remove the extra "?" from the redirect_url before the "status" parameter
-            redirect_url = f"https://enetworks.onrender.com/pay/{user_id}/verify"
+            redirect_url = f"https://enetworksagencybanking.com.ng/pay/{user_id}/verify"
             # Update the user's payment reference in the database
             user.payment_reference = redirect_url
             db.session.commit()
@@ -869,7 +883,7 @@ def verify_payment(user_id):
 
             if existing_payment:
                 # Payment has already been processed, do not update earnings again
-                return redirect("https://www.enetworksagencybanking.com.ng/interns/dashboard")
+                return redirect("https://www.enetworksagencybanking.com.ng/user/dashboard")
 
             # Save the successful payment record to prevent duplicate earnings updates
             successful_payment = SuccessfulPayment(
@@ -889,7 +903,7 @@ def verify_payment(user_id):
             db.session.commit()
 
             # Redirect to the desired URL or return a response indicating the payment was successful
-            return redirect("https://www.enetworksagencybanking.com.ng/interns/dashboard")
+            return redirect("https://www.enetworksagencybanking.com.ng/user/dashboard")
 
         # Return a response indicating the payment was not successful
         response = {
@@ -936,7 +950,7 @@ def update_profile_image():
     except Exception as e:
         return jsonify({"error": "Failed to read and encode profile image"}), 500
 
-    return redirect("https://www.enetworksagencybanking.com.ng/interns/dashboard")
+    return redirect("https://www.enetworksagencybanking.com.ng/user/dashboard")
 
 
 @app.route('/admins', methods=['GET'])
