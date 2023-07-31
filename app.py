@@ -33,11 +33,6 @@ app.config.from_object(ApplicationConfig)
 CORS(app, allow_headers=True, supports_credentials=True)
 bcrypt = Bcrypt(app)
 jwt = JWTManager(app)
-app.config['MAIL_SERVER'] = 'smtp.elasticemail.com'
-app.config['MAIL_PORT'] = 2525
-app.config['MAIL_USERNAME'] = 'coldnightdev@gmail.com'
-app.config['MAIL_PASSWORD'] = "DA79E471E994C2FBEC5BB9F44ABDF78CF139"
-app.config['MAIL_USE_TLS'] = True
 app.config['DATABASE_INITIALIZED'] = False
 mail = Mail(app)
 server_session = Session(app)
@@ -65,8 +60,8 @@ with app.app_context():
 @app.after_request
 def add_cors_headers(response):
     # Replace with your frontend domain
-    # frontend_domain = 'https://www.enetworksagencybanking.com.ng'
-    frontend_domain = 'http://localhost:3000'
+    frontend_domain = 'https://www.enetworksagencybanking.com.ng'
+    # frontend_domain = 'http://localhost:3000'
     response.headers['Access-Control-Allow-Origin'] = frontend_domain
     response.headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'
     response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
@@ -257,6 +252,8 @@ def send_otp_to_email_for_verify(email, otp):
 ####################################################################
 ####################################################################
 ####################################################################
+
+
 @app.route('/')
 def hello_world():
     return 'Hello from Koyeb'
@@ -987,4 +984,4 @@ def logout():
 
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run()
