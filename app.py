@@ -800,7 +800,7 @@ def initialize_payment():
                 "name": user.first_name,
                 "email_address": user.email,
                 "phone_number": user.phone_number,
-                "amount": 1500,
+                "amount": 100,
                 "currency": "NGN",
                 "user_bear_charge": "no",
                 "preferred_payment_option": "card",
@@ -886,7 +886,7 @@ def verify_payment(user_id):
             successful_payment = SuccessfulPayment(
                 user_id=user_id,
                 transaction_reference=transaction_reference,
-                payment_amount=1500  # Change this to the actual payment amount
+                payment_amount=100  # Change this to the actual payment amount
             )
             db.session.add(successful_payment)
             db.session.commit()
