@@ -951,5 +951,28 @@ def logout():
     return jsonify({"message": "Logged out successfully"}), 200
 
 
+@app.route('/referral-history', methods=['GET'])
+def get_referral_history():
+    # Get all users who have referred others
+    referrers = User.query.filter(User.referred_users.any()).all()
+
+    referral_history_list = []
+
+    for referrer in referrers:
+        # Get the list of users referred by this referrer
+        referred_users = referrer.referred_users.all()
+
+        # Iterate through referred users and construct the data for each referral
+        for referred_user in referred_users:
+            referral_data = {
+                'referrer': f"{referrer.first_name} {referrer.last_name}",
+                'referred': f"{referred_user.first_name} {referred_user.last_name}",
+                'date': referred_user.created_at.strftime('%Y-%m-%d %H:%M:%S')
+            }
+            referral_history_list.append(referral_data)
+
+    return jsonify(referral_history_list), 200
+
+
 if __name__ == "__main__":
     app.run(debug=True)

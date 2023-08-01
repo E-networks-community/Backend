@@ -53,6 +53,23 @@ class User(db.Model):
     referred_me = db.relationship(
         'User', remote_side=[id], backref='referred_by', overlaps="referred_users,referrer")
 
+    @classmethod
+    def get_total_registered_users(cls):
+        return cls.query.count()
+
+    def get_recent_referral_history(self, limit=10):
+        # Get the recent referral history of the user
+        history = db.session.query(
+            User.first_name,
+            User.last_name,
+            User.referred_by_id,
+            User.created_at
+        ).filter(User.referred_by_id == self.id).order_by(
+            User.created_at.desc()
+        ).limit(limit).all()
+
+        return history
+
     def to_dict(self):
         # Get the ID of the referrer or None if no referrer
         referred_me = self.referred_me.id if self.referred_me else None
@@ -75,6 +92,8 @@ class User(db.Model):
             'profile_image': str(self.profile_image),
             # Add this line to include total_referred_users
             'total_referred_users': self.get_total_referred_users(),
+            'total_registered_users': User.get_total_registered_users(),  # Total registered users
+            'recent_referral_history': self.get_recent_referral_history(),  # Recent referral histor
         }
 
     def get_total_referred_users(self):
