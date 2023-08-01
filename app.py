@@ -1,18 +1,13 @@
-# from flask_jwt_extended import jwt_required, get_jwt_identity, get_jwt_claims
-import datetime
 from functools import wraps
 import json
-from urllib.parse import urlencode
 import uuid
 from flask import Flask, redirect, render_template, request, jsonify, send_from_directory, session
-# from asgiref.wsgi import WsgiToAsgi
 from flask_bcrypt import Bcrypt
-from flask_cors import CORS, cross_origin
+from flask_cors import CORS
 from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
 from flask_session import Session
 from models import SuccessfulPayment, OTP
 from config import ApplicationConfig
-from werkzeug.utils import secure_filename
 from models import Role, db, User, create_roles
 import os
 import requests
@@ -20,6 +15,16 @@ import string
 import random
 from flask_mail import Mail, Message
 import base64
+import cloudinary
+import cloudinary.uploader
+import cloudinary.api
+from passlib.hash import bcrypt_sha256
+
+cloudinary.config(
+    cloud_name="dagw7pro6",
+    api_key="761564937985964",
+    api_secret="4GsZPO7aW5TvNNrkIAD4AgC_TTI"
+)
 
 ####################################################################
 ####################################################################
@@ -38,17 +43,10 @@ mail = Mail(app)
 server_session = Session(app)
 db.init_app(app)
 with app.app_context():
-    if not app.config['DATABASE_INITIALIZED']:
-        # db.drop_all()
-        db.create_all()
-        create_roles()
-        app.config['DATABASE_INITIALIZED'] = True
-    else:
-        # If the database has already been initialized, create roles only
-        with app.app_context():
-            db.drop_all()
-            db.create_all()
-            create_roles()
+    # db.drop_all()
+    #
+    db.create_all()
+    # create_roles()
 ####################################################################
 ####################################################################
 ####################################################################
@@ -60,7 +58,7 @@ with app.app_context():
 @app.after_request
 def add_cors_headers(response):
     # Replace with your frontend domain
-    frontend_domain = 'https://www.enetworksagencybanking.com.ng'
+    frontend_domain = 'https://www.enetworksa1gencybanking.com.ng'
     # frontend_domain = 'http://localhost:3000'
     response.headers['Access-Control-Allow-Origin'] = frontend_domain
     response.headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'
@@ -90,24 +88,15 @@ def allowed_file(filename):
 ################## Function to save profile Image ##################
 
 
-def save_profile_image(image, user_id):
-    filename = secure_filename(image.filename)
-    save_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-    image.save(save_path)
+def upload_image_to_cloudinary(image):
+    # Upload the image to Cloudinary
+    result = cloudinary.uploader.upload(image)
 
-    # Read the saved image file
-    with open(save_path, 'rb') as file:
-        image_data = file.read()
+    # Get the public URL of the uploaded image from the Cloudinary response
+    image_url = result['url']
 
-    # Encode the image data as base64
-    base64_image = base64.b64encode(image_data).decode('utf-8')
+    return image_url
 
-    # Update the user's profile_image field with the base64 encoded image
-    user = User.query.filter_by(id=user_id).first()
-    user.profile_image = base64_image
-    db.session.commit()
-
-    return filename
 ####################################################################
 ####################################################################
 ####################################################################
@@ -360,7 +349,7 @@ def register_user(role_name, referrer_id=None):
         return jsonify(message=f'Invalid role_name provided: {role_name}'), 400
 
     # Generate a unique referral code for the new user
-    hashed_password = bcrypt.generate_password_hash(password)
+    hashed_password = bcrypt_sha256.hash(password)
 
     new_user_referral_code = generate_referral_code()
 
@@ -380,8 +369,9 @@ def register_user(role_name, referrer_id=None):
         db.session.commit()
 
         if profile_image and allowed_file(profile_image.filename):
-            filename = save_profile_image(profile_image, new_user.id)
-            new_user.profile_image = filename
+            # Upload the profile image to Cloudinary
+            profile_image_url = upload_image_to_cloudinary(profile_image)
+            new_user.profile_image = profile_image_url
 
         # Save the referral link before committing the user object
         new_user.referral_link = new_user.generate_referral_link()
@@ -418,7 +408,7 @@ def login():
 
     user = User.query.filter_by(email=email).first()
 
-    if user is None or not bcrypt.check_password_hash(user.password, password):
+    if user is None or not bcrypt_sha256.verify(password, user.password):
         return jsonify({"error": "Unauthorized"}), 401
 
     # Create the access token with the user ID as the identity
@@ -916,40 +906,6 @@ def verify_payment(user_id):
         return jsonify({"error": "Payment verification failed"}), 500
 
 
-@app.route("/update_profile_image", methods=["POST"])
-@jwt_required()
-def update_profile_image():
-    # user_id = session.get("user_id")
-    user_id = get_jwt_identity()
-
-    if not user_id:
-        return jsonify({"error": "unauthorized"}), 401
-
-    user = User.query.filter_by(id=user_id).first()
-
-    if not user:
-        return jsonify({"error": "User not found"}), 404
-
-    profile_image = request.files.get("profile_image")
-
-    # Process profile image upload
-    if profile_image:
-        profile_image_filename = save_profile_image(profile_image, user.id)
-        user.profile_image = profile_image_filename
-        db.session.commit()
-    else:
-        return jsonify({"error": "No profile image provided"}), 400
-
-    # Read the image file and encode it as Base64
-    try:
-        with open(profile_image_filename, "rb") as file:
-            encoded_image = base64.b64encode(file.read()).decode("utf-8")
-    except Exception as e:
-        return jsonify({"error": "Failed to read and encode profile image"}), 500
-
-    return redirect("https://www.enetworksagencybanking.com.ng/")
-
-
 @app.route('/admins', methods=['GET'])
 def get_all_admins():
     # Query the database to get all users with the 'Admin' role
@@ -976,6 +932,18 @@ def get_all_interns():
     return jsonify(interns_data)
 
 
+@app.route("/upload-image", methods=["POST"])
+def upload_image():
+    image = request.files.get("image")
+    # Upload the image to Cloudinary
+    result = cloudinary.uploader.upload(image)
+
+    # Get the public URL of the uploaded image from the Cloudinary response
+    image_url = result['url']
+
+    return f"Image uploaded successfully with URL: {image_url}"
+
+
 @app.route("/logout", methods=["POST"])
 def logout():
     # Clear the token on the client-side (e.g., remove from local storage or delete the token cookie)
@@ -984,4 +952,4 @@ def logout():
 
 
 if __name__ == "__main__":
-    app.run()
+    app.run(debug=True)

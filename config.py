@@ -2,6 +2,8 @@ import hashlib
 import hmac
 import os
 import redis
+from sqlalchemy import create_engine
+from sqlalchemy.orm import scoped_session
 
 
 class ApplicationConfig:
@@ -12,8 +14,10 @@ class ApplicationConfig:
 
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     SQLALCHEMY_ECHO = True
-    SQLALCHEMY_DATABASE_URI = r"sqlite:///./db.sqlite"
+    # SQLALCHEMY_DATABASE_URI = r"sqlite:///./db.sqlite"
+    SQLALCHEMY_DATABASE_URI = "postgresql://postgres:oXMY8Lu55hbeyGFDYI2w@containers-us-west-168.railway.app:6965/railway"
 
+    DATABASE_ENGINE = create_engine(SQLALCHEMY_DATABASE_URI)
     SESSION_TYPE = 'redis'
     REDIS_URL = "redis://red-cj1163k07spjv9picbh0:6379"
     SESSION_REDIS = redis.from_url(REDIS_URL)

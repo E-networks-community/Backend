@@ -28,11 +28,11 @@ class User(db.Model):
                    default=lambda: str(uuid.uuid4()), unique=True)
     first_name = db.Column(db.String(50), nullable=False)
     last_name = db.Column(db.String(50), nullable=False)
-    email = db.Column(db.String(100), unique=True, nullable=False)
-    password = db.Column(db.String(100), nullable=False)
+    email = db.Column(db.String(255), unique=True, nullable=False)
+    password = db.Column(db.String(255), nullable=False)
     phone_number = db.Column(db.String(20))
     referral_code = db.Column(db.String(10), unique=True, nullable=True)
-    referral_link = db.Column(db.String(100), unique=True, nullable=True)
+    referral_link = db.Column(db.String(255), unique=True, nullable=True)
     otps = db.relationship('OTP', backref='user', lazy='dynamic')
     # New column to store the referrer's ID
     referred_by_id = db.Column(
@@ -42,7 +42,7 @@ class User(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     modified_at = db.Column(db.DateTime, default=datetime.utcnow)
     earnings = db.Column(db.Float, default=0.0)
-    profile_image = db.Column(db.String(255), default=None)
+    profile_image = db.Column(db.TEXT, default=None)
     is_email_verified = db.Column(db.Boolean, default=False)
     has_paid = db.Column(db.Boolean, default=False)
     referred_users = db.relationship('User', backref=db.backref(
@@ -133,7 +133,7 @@ class OTP(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.String(36), db.ForeignKey(
         'user.id'), nullable=False)
-    email = db.Column(db.String(100), nullable=False)
+    email = db.Column(db.String(255), nullable=False)
     otp = db.Column(db.String(6), nullable=False)
     timestamp = db.Column(db.DateTime, default=datetime.utcnow)
 
