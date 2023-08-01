@@ -560,6 +560,8 @@ def dashboard():
     referral_list = user.get_referral_list()
     # Add the referral list to the user data dictionary
     user_data['referral_list'] = referral_list
+    referral_history = user.get_referral_history()
+    user_data['recent_referral_history'] = referral_history
 
     # Return the user's data as a JSON response
     return jsonify(user_data), 200

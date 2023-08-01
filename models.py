@@ -116,6 +116,23 @@ class User(db.Model):
             })
         return referral_list
 
+    def get_referral_history(self, limit=10):
+        # Fetch the referral history for the user from the SuccessfulPayment table
+        referral_history = SuccessfulPayment.query.filter_by(user_id=self.id).order_by(
+            SuccessfulPayment.timestamp.desc()
+        ).limit(limit).all()
+
+        # Convert the referral history data to a list of dictionaries
+        referral_history_list = []
+        for payment in referral_history:
+            referral_history_list.append({
+                'date': str(payment.timestamp),
+                'referred': payment.user.first_name + ' ' + payment.user.last_name,
+                'referrer': self.first_name + ' ' + self.last_name
+            })
+
+        return referral_history_list
+
     def generate_referral_link(self):
         if self.referral_code:
             return f"https://www.enetworksagencybanking.com.ng/referral/{self.referral_code}"
