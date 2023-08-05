@@ -826,9 +826,9 @@ def initialize_payment():
         payload = {
             "data": {
                 # "public_key": "MSFT_live_VF0TV7JI47I4RFDAHWY7GQFPJ0ZS0JE",
-                "public_key": "MSFT_test_40M0277A5ADIAQPHIB6WIPYW7K00QUH",
-                # "request_type": "live",
-                "request_type": "test",
+                "public_key": "MSFT_live_475HC3DIJWVV7YBMJ5X6MEXT4FUU23L",
+                "request_type": "live",
+                # "request_type": "test",
                 "merchant_tx_ref": transaction_reference,
                 # Manually construct the redirect_url with query parameters
                 "redirect_url": f"https://enetworks-tovimikailu.koyeb.app/pay/{user_id}/verify",
