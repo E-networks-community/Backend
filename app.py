@@ -946,8 +946,8 @@ def verify_payment(user_id):
             db.session.commit()
 
             # Redirect to the desired URL or return a response indicating the payment was successful
-            # return redirect("https://www.enetworksagencybanking.com.ng/")
-            return jsonify(message="Payment Done")
+            return redirect("https://www.enetworksagencybanking.com.ng/")
+            # return jsonify(message="Payment Done")
 
         # Return a response indicating the payment was not successful
         response = {
