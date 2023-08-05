@@ -831,8 +831,8 @@ def initialize_payment():
                 "request_type": "test",
                 "merchant_tx_ref": transaction_reference,
                 # Manually construct the redirect_url with query parameters
-                # "redirect_url": f"https://enetworks-tovimikailu.koyeb.app/pay/{user_id}/verify",
-                "redirect_url": f"http://localhost:5000/pay/{user_id}/verify",
+                "redirect_url": f"https://enetworks-tovimikailu.koyeb.app/pay/{user_id}/verify",
+                # "redirect_url": f"http://localhost:5000/pay/{user_id}/verify",
                 "name": user.first_name,
                 "email_address": user.email,
                 "phone_number": user.phone_number,
@@ -860,8 +860,8 @@ def initialize_payment():
             payment_url = data["url"]
 
             # Remove the extra "?" from the redirect_url before the "status" parameter
-            redirect_url = f"http://localhost:5000/pay/{user_id}/verify"
-            # redirect_url = f"https://enetworks-tovimikailu.koyeb.app/pay/{user_id}/verify"
+            # redirect_url = f"http://localhost:5000/pay/{user_id}/verify"
+            redirect_url = f"https://enetworks-tovimikailu.koyeb.app/pay/{user_id}/verify"
             # Update the user's payment reference in the database
             user.payment_reference = redirect_url
             db.session.commit()
