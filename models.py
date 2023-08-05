@@ -35,6 +35,7 @@ class User(db.Model):
     local_government = db.Column(db.String(100))
     state = db.Column(db.String(100))
     address = db.Column(db.String(255))
+    bank_name = db.Column(db.String(255))
     referral_link = db.Column(db.String(255), unique=True, nullable=True)
     otps = db.relationship('OTP', backref='user', lazy='dynamic')
     # New column to store the referrer's ID
@@ -43,7 +44,7 @@ class User(db.Model):
 
     role_id = db.Column(db.Integer, db.ForeignKey('role.id'), nullable=False)
     account = db.Column(BigInteger)
-    enairaId = db.Column(BigInteger)
+    enairaId = db.Column(db.String(255), nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     modified_at = db.Column(db.DateTime, default=datetime.utcnow)
     earnings = db.Column(db.Float, default=0.0)
@@ -98,6 +99,8 @@ class User(db.Model):
             'modified_at': str(self.modified_at),
             'is_email_verified': str(self.is_email_verified),
             'earnings': self.earnings,
+            'account': self.account,
+            'bank_name': self.bank_name,
             'profile_image': str(self.profile_image),
             # Add this line to include total_referred_users
             'total_referred_users': self.get_total_referred_users(),

@@ -3,6 +3,7 @@ import json
 import uuid
 from flask import Flask, redirect, render_template, request, jsonify, send_from_directory, session
 from flask_bcrypt import Bcrypt
+from flask_migrate import Migrate
 from flask_cors import CORS
 from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
 from flask_session import Session
@@ -40,6 +41,7 @@ bcrypt = Bcrypt(app)
 jwt = JWTManager(app)
 app.config['DATABASE_INITIALIZED'] = False
 mail = Mail(app)
+migrate = Migrate(app, db)
 server_session = Session(app)
 db.init_app(app)
 # with app.app_context():
@@ -57,6 +59,7 @@ db.init_app(app)
 @app.after_request
 def add_cors_headers(response):
     # Replace with your frontend domain
+    # frontend_domain = 'http://localhost:3000'
     frontend_domain = 'https://www.enetworksagencybanking.com.ng'
     response.headers['Access-Control-Allow-Origin'] = frontend_domain
     response.headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS, PATCH'
@@ -84,7 +87,8 @@ def allowed_file(filename):
 VALID_STATES = [
     'Abia', 'Adamawa', 'Akwa Ibom', 'Anambra', 'Bauchi', 'Bayelsa',
     'Benue', 'Borno', 'Cross River', 'Delta', 'Ebonyi', 'Edo', 'Ekiti',
-    'Enugu', 'Gombe', 'Imo', 'Jigawa', 'Kaduna', 'Kano', 'Katsina',
+    'Enugu', 'FCT',  # Added FCT here
+    'Gombe', 'Imo', 'Jigawa', 'Kaduna', 'Kano', 'Katsina',
     'Kebbi', 'Kogi', 'Kwara', 'Lagos', 'Nasarawa', 'Niger', 'Ogun',
     'Ondo', 'Osun', 'Oyo', 'Plateau', 'Rivers', 'Sokoto', 'Taraba',
     'Yobe', 'Zamfara'
@@ -305,9 +309,9 @@ def register_agent():
     return register_user(role_name='Agent')
 
 
-@app.route('/admin/register', methods=['POST'])
-def register_admin():
-    return register_user(role_name='Admin')
+# @app.route('/admin/register', methods=['POST'])
+# def register_admin():
+#     return register_user(role_name='Admin')
 
 
 @app.route('/intern/register', methods=['POST'])
@@ -351,9 +355,10 @@ def register_user(role_name, referrer_id=None):
     local_government_area = data.get('local_government_area')
     address = data.get('address')
     account = data.get('account')
-    enairaId = data.get('enaira_Id', generate_unique_enaira_id())
+    bankName = data.get('bankName')
+    enairaId = data.get('enaira_Id', None)
 
-    if not all([first_name, last_name, email, password, phone_number, state, local_government_area, address, account]):
+    if not all([first_name, last_name, email, password, phone_number, state, local_government_area, address, account, bankName]):
         return jsonify(message='Missing required fields in the request'), 400
 
     # Check if the email is already in use
@@ -394,7 +399,8 @@ def register_user(role_name, referrer_id=None):
         local_government=local_government_area,
         address=address,
         enairaId=enairaId,
-        account=account
+        account=account,
+        bank_name=bankName
     )
 
     try:
@@ -1076,7 +1082,8 @@ def create_executives():
     valid_states = [
         'Abia', 'Adamawa', 'Akwa Ibom', 'Anambra', 'Bauchi', 'Bayelsa',
         'Benue', 'Borno', 'Cross River', 'Delta', 'Ebonyi', 'Edo', 'Ekiti',
-        'Enugu', 'Gombe', 'Imo', 'Jigawa', 'Kaduna', 'Kano', 'Katsina',
+        'Enugu', 'FCT',  # Added FCT here
+        'Gombe', 'Imo', 'Jigawa', 'Kaduna', 'Kano', 'Katsina',
         'Kebbi', 'Kogi', 'Kwara', 'Lagos', 'Nasarawa', 'Niger', 'Ogun',
         'Ondo', 'Osun', 'Oyo', 'Plateau', 'Rivers', 'Sokoto', 'Taraba',
         'Yobe', 'Zamfara'
@@ -1090,6 +1097,7 @@ def create_executives():
             last_name = "To Be Edited"
             phone_number = "To Be Edited"
             address = "To Be Edited"
+            bankName = "To be Edited"
 
             role_name = "Executives"  # Assuming 'Executives' is the role name for executives
 
@@ -1111,7 +1119,8 @@ def create_executives():
                         local_government="To Be Edited",
                         is_email_verified=True,  # Mark email as verified for simplicity
                         account=0000,
-                        enairaId=0000,
+                        enairaId="0000",
+                        bank_name="To be edited"
                     )
 
                     db.session.add(new_executive)
@@ -1285,7 +1294,8 @@ def create_admin():
                     local_government="To Be Edited",
                     is_email_verified=True,  # Mark email as verified for simplicity
                     account=generate_account_number(),
-                    enairaId=generate_enaira_id(),
+                    enairaId="To be Edited",
+                    bank_name="To be Added"
                 )
 
                 db.session.add(new_admin)
