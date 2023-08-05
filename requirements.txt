@@ -14,3 +14,4 @@ gunicorn
 passlib
 cloudinary
 psycopg2
+flask_migrate
