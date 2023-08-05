@@ -26,10 +26,11 @@ class ApplicationConfig:
     SESSION_PERMANENT = False
     SESSION_USE_SIGNER = False
 
+    # MAIL_SERVER = 'smtp25.elasticemail.com'
     MAIL_SERVER = 'smtp.elasticemail.com'
     MAIL_PORT = 2525
-    MAIL_USERNAME = 'coldnightdev@gmail.com'
-    MAIL_PASSWORD = "DA79E471E994C2FBEC5BB9F44ABDF78CF139"
+    MAIL_USERNAME = 'enetworksagencybanking@gmail.com'
+    MAIL_PASSWORD = "E9A54FA20AD4D93955A76BEDD66A483174DD"
     MAIL_USE_TLS = True
     DATABASE_INITIALIZED = False
 

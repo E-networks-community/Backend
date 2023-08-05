@@ -1,7 +1,7 @@
 from datetime import datetime
 import uuid
 from flask_sqlalchemy import SQLAlchemy
-from sqlalchemy import select, join
+from sqlalchemy import BigInteger, select, join
 
 db = SQLAlchemy()
 
@@ -32,6 +32,9 @@ class User(db.Model):
     password = db.Column(db.String(255), nullable=False)
     phone_number = db.Column(db.String(20))
     referral_code = db.Column(db.String(10), unique=True, nullable=True)
+    local_government = db.Column(db.String(100))
+    state = db.Column(db.String(100))
+    address = db.Column(db.String(255))
     referral_link = db.Column(db.String(255), unique=True, nullable=True)
     otps = db.relationship('OTP', backref='user', lazy='dynamic')
     # New column to store the referrer's ID
@@ -39,6 +42,8 @@ class User(db.Model):
         db.String(36), db.ForeignKey('user.id'), nullable=True)
 
     role_id = db.Column(db.Integer, db.ForeignKey('role.id'), nullable=False)
+    account = db.Column(BigInteger)
+    enairaId = db.Column(BigInteger)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     modified_at = db.Column(db.DateTime, default=datetime.utcnow)
     earnings = db.Column(db.Float, default=0.0)
@@ -52,6 +57,10 @@ class User(db.Model):
     role = db.relationship('Role', backref='users')
     referred_me = db.relationship(
         'User', remote_side=[id], backref='referred_by', overlaps="referred_users,referrer")
+
+    @classmethod
+    def get_total_users_per_state(cls, state_name):
+        return cls.query.filter_by(state=state_name).count()
 
     @classmethod
     def get_total_registered_users(cls):
@@ -123,15 +132,22 @@ class User(db.Model):
         ).limit(limit).all()
 
         # Convert the referral history data to a list of dictionaries
-        referral_history_list = []
-        for payment in referral_history:
-            referral_history_list.append({
-                'date': str(payment.timestamp),
-                'referred': payment.user.first_name + ' ' + payment.user.last_name,
-                'referrer': self.first_name + ' ' + self.last_name
+        referrals = []
+        for payment in SuccessfulPayment.query.all():
+            referrer = db.session.query(User).filter_by(
+                id=payment.user_id).first()
+            referred = db.session.query(User).filter_by(
+                id=referrer.referred_by_id).first()
+
+            referrer_name = f"{referrer.first_name} {referrer.last_name}"
+            referred_name = f"{referred.first_name} {referred.last_name}" if referred else "No Referral"
+
+            referrals.append({
+                'referred_name': referred_name,
+                'referrer_name': referrer_name
             })
 
-        return referral_history_list
+        return referrals
 
     def generate_referral_link(self):
         if self.referral_code:
@@ -148,10 +164,10 @@ def create_roles():
     roles_data = [
         {'role_name': 'Super Admin'},
         {'role_name': 'Admin'},
+        {'role_name': 'Executives'},
         {'role_name': 'Mobilizer'},
         {'role_name': 'Intern'},
-        {'role_name': 'Agent'},
-        {'role_name': 'User'},
+        {'role_name': 'Agent'}
     ]
 
     for role_data in roles_data:

@@ -42,11 +42,10 @@ app.config['DATABASE_INITIALIZED'] = False
 mail = Mail(app)
 server_session = Session(app)
 db.init_app(app)
-with app.app_context():
-    # db.drop_all()
-    #
-    db.create_all()
-    # create_roles()
+# with app.app_context():
+#     db.drop_all()
+#     db.create_all()
+#     create_roles()
 ####################################################################
 ####################################################################
 ####################################################################
@@ -58,10 +57,10 @@ with app.app_context():
 @app.after_request
 def add_cors_headers(response):
     # Replace with your frontend domain
-    frontend_domain = 'https://www.enetworksagencybanking.com.ng'
-    # frontend_domain = 'http://localhost:3000'
+    # frontend_domain = 'https://www.enetworksagencybanking.com.ng'
+    frontend_domain = 'http://localhost:3000'
     response.headers['Access-Control-Allow-Origin'] = frontend_domain
-    response.headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'
+    response.headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS, PATCH'
     response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
     response.headers['Access-Control-Allow-Credentials'] = 'true'
     return response
@@ -81,6 +80,17 @@ ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg"}
 def allowed_file(filename):
     ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg'}
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+
+VALID_STATES = [
+    'Abia', 'Adamawa', 'Akwa Ibom', 'Anambra', 'Bauchi', 'Bayelsa',
+    'Benue', 'Borno', 'Cross River', 'Delta', 'Ebonyi', 'Edo', 'Ekiti',
+    'Enugu', 'Gombe', 'Imo', 'Jigawa', 'Kaduna', 'Kano', 'Katsina',
+    'Kebbi', 'Kogi', 'Kwara', 'Lagos', 'Nasarawa', 'Niger', 'Ogun',
+    'Ondo', 'Osun', 'Oyo', 'Plateau', 'Rivers', 'Sokoto', 'Taraba',
+    'Yobe', 'Zamfara'
+]
+
 ####################################################################
 ####################################################################
 ####################################################################
@@ -115,6 +125,14 @@ def require_role(role_names):
             return func(*args, **kwargs)
         return wrapper
     return decorator
+
+
+def has_role(user_id, roles):
+    user = User.query.get(user_id)
+    if user and user.role:
+        return user.role.role_name in roles
+    return False
+
 ####################################################################
 ####################################################################
 ####################################################################
@@ -217,7 +235,7 @@ def send_email_with_no_otp(to, subject, template, user_name, **kwargs):
 
 
 def send_otp_to_email_for_verify(email, otp):
-    subject = "E-networksCommunity Verify Emai;"
+    subject = "E-networksCommunity Verify Email"
 
     msg_body = f"Dear user,\n\n" \
                f"Verify your Email: {email}\n" \
@@ -329,12 +347,23 @@ def register_user(role_name, referrer_id=None):
     phone_number = data.get('phone_number')
     referral_code = data.get('referral_code')
 
-    if not all([first_name, last_name, email, password, phone_number]):
+    # New fields
+    state = data.get('state')
+    local_government_area = data.get('local_government_area')
+    address = data.get('address')
+    account = data.get('account')
+    enairaId = data.get('enaira_Id', generate_unique_enaira_id())
+
+    if not all([first_name, last_name, email, password, phone_number, state, local_government_area, address, account]):
         return jsonify(message='Missing required fields in the request'), 400
 
     # Check if the email is already in use
     if User.query.filter_by(email=email).first():
         return jsonify(message='Email already registered'), 409
+
+    # Validate state
+    if state not in VALID_STATES:
+        return jsonify(message='Invalid state provided'), 400
 
     # Check if the referral code exists and get the referrer user
     referrer = None
@@ -361,7 +390,12 @@ def register_user(role_name, referrer_id=None):
         phone_number=phone_number,
         referral_code=new_user_referral_code,
         role=role,
-        referred_by_id=referrer_id
+        referred_by_id=referrer_id,
+        state=state,
+        local_government=local_government_area,
+        address=address,
+        enairaId=enairaId,
+        account=account
     )
 
     try:
@@ -497,47 +531,55 @@ def register_with_referral(referral_code):
     return jsonify(message="Register complete"), 200
 
 
-@app.route('/edit-user/<user_id>', methods=['PATCH'])
+@app.route('/edit-user', methods=['PATCH'])
 @jwt_required()
-@require_role(['Admin', 'Super Admin'])
-def edit_user(user_id):
-    current_user_id = get_jwt_identity()
+def edit_user():
+    try:
+        current_user_id = get_jwt_identity()
 
-    # Check if the current user has permission to edit users (e.g., Admin or Super Admin)
-    # You can define the require_role decorator to check the user's role and permissions.
+        user = User.query.get(current_user_id)
+        if not user:
+            return jsonify({"message": "User not found"}), 404
 
-    # Get the user to be edited from the database
-    user_to_edit = User.query.get(user_id)
-    if not user_to_edit:
-        return jsonify({"message": "User not found"}), 404
+        # Get the data from the PATCH request
+        data = request.form.to_dict()
 
-    # Make sure the current user has permission to edit this user (optional, if needed)
-    # Example:
+        # Check if the current user has permission to edit this user (optional, if needed)
+        # For example, you can check if the current user is the same as the user being edited.
 
-    # Get the data from the PATCH request
-    data = request.json
+        # Update user attributes based on provided data
+        if 'password' in data:
+            new_password = data.get("password")
+            hashed_password = bcrypt_sha256.hash(new_password)
+            user.password = hashed_password
 
-    # Update the user's data
-    # if 'full_name' in data:
-    #     user_to_edit.full_name = data['full_name']
+        if 'email' in data:
+            email = data.get("email")
+            user.email = email
 
-    if 'first_name' in data:
-        user_to_edit.first_name = data['first_name']
+        if 'phone_number' in data:
+            phone_number = data.get("phone_number")
+            user.phone_number = phone_number
 
-    # if 'last_name' in data:
-    #     user_to_edit.last_name = data['last_name']
+        if 'local_government_area' in data:
+            lga = data.get("local_government_area")
+            user.lga = lga
 
-    if 'email' in data:
-        user_to_edit.email = data['email']
+        if 'address' in data:
+            address = data.get("address")
+            user.address = address
 
-    # if 'phone_number' in data:
-    #     user_to_edit.phone_number = data['phone_number']
-    # Add more fields as needed...
+        if 'account' in data:
+            account = data.get("account")
+            user.account = account
 
-    # Commit the changes to the database
-    db.session.commit()
+        # Commit the changes to the database
+        db.session.commit()
 
-    return jsonify({"message": f"User {user_id} data updated successfully"}), 200
+        return jsonify({"message": f"User {current_user_id} data updated successfully"}), 200
+
+    except Exception as e:
+        return jsonify({"message": "An error occurred", "error": str(e)}), 500
 
 
 @app.route('/dashboard', methods=['GET'])
@@ -784,15 +826,18 @@ def initialize_payment():
         # Prepare the data payload
         payload = {
             "data": {
-                "public_key": "MSFT_live_VF0TV7JI47I4RFDAHWY7GQFPJ0ZS0JE",
-                "request_type": "live",
+                # "public_key": "MSFT_live_VF0TV7JI47I4RFDAHWY7GQFPJ0ZS0JE",
+                "public_key": "MSFT_test_40M0277A5ADIAQPHIB6WIPYW7K00QUH",
+                # "request_type": "live",
+                "request_type": "test",
                 "merchant_tx_ref": transaction_reference,
                 # Manually construct the redirect_url with query parameters
-                "redirect_url": f"https://enetworks-tovimikailu.koyeb.app/pay/{user_id}/verify",
+                # "redirect_url": f"https://enetworks-tovimikailu.koyeb.app/pay/{user_id}/verify",
+                "redirect_url": f"http://localhost:5000/pay/{user_id}/verify",
                 "name": user.first_name,
                 "email_address": user.email,
                 "phone_number": user.phone_number,
-                "amount": 100,
+                "amount": 1500,
                 "currency": "NGN",
                 "user_bear_charge": "no",
                 "preferred_payment_option": "card",
@@ -816,7 +861,8 @@ def initialize_payment():
             payment_url = data["url"]
 
             # Remove the extra "?" from the redirect_url before the "status" parameter
-            redirect_url = f"https://enetworks-tovimikailu.koyeb.app/pay/{user_id}/verify"
+            redirect_url = f"http://localhost:5000/pay/{user_id}/verify"
+            # redirect_url = f"https://enetworks-tovimikailu.koyeb.app/pay/{user_id}/verify"
             # Update the user's payment reference in the database
             user.payment_reference = redirect_url
             db.session.commit()
@@ -842,18 +888,12 @@ def verify_payment(user_id):
     # verification_token = request.args.get("token")
 
     print("Received values:")
-    # print("Status:", status)
     print("Transaction Reference:", transaction_reference)
     print("Payment Reference:", payment_reference)
-    # print("Verification Token:", verification_token)
 
     # Check if the required parameters are missing
     if not status or not transaction_reference or not payment_reference:
         return jsonify({"error": "Missing required parameters"}), 400
-
-    # Verify the verification token
-    # if not verify_verification_token(user_id, transaction_reference, verification_token):
-    #     return jsonify({"error": "Invalid verification token"}), 400
 
     try:
         # Check if the payment was successful
@@ -878,9 +918,24 @@ def verify_payment(user_id):
             successful_payment = SuccessfulPayment(
                 user_id=user_id,
                 transaction_reference=transaction_reference,
-                payment_amount=100  # Change this to the actual payment amount
+                payment_amount=1500  # Change this to the actual payment amount
             )
             db.session.add(successful_payment)
+
+            # Check if the user was referred by a mobilizer
+            if user.referred_me and user.referred_me.role and user.referred_me.role.role_name == 'Mobilizer':
+                referred_by_mobilizer = user.referred_me
+                referred_by_mobilizer.earnings += 100  # Update mobilizer's earnings
+                db.session.add(referred_by_mobilizer)
+
+            # Check if the user's state has an executive
+            if user.state:
+                executives = User.query.filter_by(state=user.state).all()
+                for executive in executives:
+                    if executive.role and executive.role.role_name == 'Executives':
+                        executive.earnings += 50
+                        db.session.add(executive)
+
             db.session.commit()
 
             send_reciept_to_user(user.email, user.first_name)
@@ -892,7 +947,8 @@ def verify_payment(user_id):
             db.session.commit()
 
             # Redirect to the desired URL or return a response indicating the payment was successful
-            return redirect("https://www.enetworksagencybanking.com.ng/")
+            # return redirect("https://www.enetworksagencybanking.com.ng/")
+            return jsonify(message="Payment Done")
 
         # Return a response indicating the payment was not successful
         response = {
@@ -908,7 +964,6 @@ def verify_payment(user_id):
         return jsonify({"error": "Payment verification failed"}), 500
 
 
-@app.route('/admins', methods=['GET'])
 def get_all_admins():
     # Query the database to get all users with the 'Admin' role
     admins = User.query.join(Role).filter_by(role_name='Admin').all()
@@ -927,11 +982,31 @@ def get_all_admins():
 @app.route('/interns', methods=['GET'])
 def get_all_interns():
     # Query the database to get all users with the 'Intern' role
-    interns = User.query.join(Role).filter_by(role_name='Mobilizers').all()
+    interns = User.query.join(Role).filter_by(role_name='Interns').all()
 
     # Convert the list of interns to dictionaries and return as JSON response
-    interns_data = [intern.to_dict() for intern in interns]
-    return jsonify(interns_data)
+    intern_data = [intern.to_dict() for intern in interns]
+    return jsonify(intern_data)
+
+
+@app.route('/mobilizer', methods=['GET'])
+def get_all_mobilizer():
+    # Query the database to get all users with the 'Intern' role
+    mobilizers = User.query.join(Role).filter_by(role_name='Mobilizers').all()
+
+    # Convert the list of interns to dictionaries and return as JSON response
+    mobilizer_data = [mobilizer.to_dict() for mobilizer in mobilizers]
+    return jsonify(mobilizer_data)
+
+
+@app.route('/executives', methods=['GET'])
+def get_all_execs():
+    # Query the database to get all users with the 'Intern' role
+    execs = User.query.join(Role).filter_by(role_name='Executives').all()
+
+    # Convert the list of interns to dictionaries and return as JSON response
+    exec_data = [exec.to_dict() for exec in execs]
+    return jsonify(exec_data)
 
 
 @app.route("/upload-image", methods=["POST"])
@@ -974,6 +1049,254 @@ def get_referral_history():
             referral_history_list.append(referral_data)
 
     return jsonify(referral_history_list), 200
+
+
+def generate_enaira_id():
+    unique_id = uuid.uuid4().int & (1 << 64) - 1  # Convert UUID to 64-bit integer
+    return unique_id % 10**10  # Keep the last 10 digits
+
+
+def generate_unique_enaira_id():
+    while True:
+        enaira_id = generate_enaira_id()
+        existing_user = User.query.filter_by(enairaId=str(enaira_id)).first()
+        if not existing_user:
+            return enaira_id
+
+
+def generate_account_number():
+    while True:
+        unique_id = uuid.uuid4().int & (1 << 64) - 1  # Convert UUID to 64-bit integer
+        existing_user = User.query.filter_by(account=unique_id).first()
+        if not existing_user:
+            return unique_id % 10**10  # Keep the last 10 digits
+
+
+@app.route('/create-executives', methods=['POST'])
+def create_executives():
+    valid_states = [
+        'Abia', 'Adamawa', 'Akwa Ibom', 'Anambra', 'Bauchi', 'Bayelsa',
+        'Benue', 'Borno', 'Cross River', 'Delta', 'Ebonyi', 'Edo', 'Ekiti',
+        'Enugu', 'Gombe', 'Imo', 'Jigawa', 'Kaduna', 'Kano', 'Katsina',
+        'Kebbi', 'Kogi', 'Kwara', 'Lagos', 'Nasarawa', 'Niger', 'Ogun',
+        'Ondo', 'Osun', 'Oyo', 'Plateau', 'Rivers', 'Sokoto', 'Taraba',
+        'Yobe', 'Zamfara'
+    ]
+
+    try:
+        for state in valid_states:
+            email = f"enetworksEexecutive{state.replace(' ', '').capitalize()}@Enet.com"
+            password = email  # Use the email as the password for simplicity
+            first_name = "To Be Edited"
+            last_name = "To Be Edited"
+            phone_number = "To Be Edited"
+            address = "To Be Edited"
+
+            role_name = "Executives"  # Assuming 'Executives' is the role name for executives
+
+            # Check if the executive already exists
+            existing_executive = User.query.filter_by(email=email).first()
+            if not existing_executive:
+                # Create a new executive user
+                role = Role.query.filter_by(role_name=role_name).first()
+                if role:
+                    new_executive = User(
+                        first_name=first_name,
+                        last_name=last_name,
+                        email=email,
+                        password=bcrypt_sha256.hash(password),
+                        phone_number=phone_number,
+                        role=role,
+                        state=state,  # Set the state to the current state being iterated
+                        address=address,
+                        local_government="To Be Edited",
+                        is_email_verified=True,  # Mark email as verified for simplicity
+                        account=0000,
+                        enairaId=0000,
+                    )
+
+                    db.session.add(new_executive)
+                    db.session.commit()
+
+        return jsonify(message="Executives created successfully"), 201
+    except Exception as e:
+        db.session.rollback()
+        print("Error creating executives:", str(e))
+        return jsonify(message="Failed to create executives"), 500
+
+
+@app.route('/executive-dashboard', methods=['GET'])
+@jwt_required()
+@require_role(['Admin', 'Super Admin', "Executives"])
+def executive_dashboard():
+    try:
+        current_user_id = get_jwt_identity()
+        current_user = User.query.get(current_user_id)
+
+        if current_user.role.role_name != 'Executives':
+            return jsonify(message='Access denied'), 403
+
+        state = current_user.state
+
+        # Get total registrations for the state
+        total_registrations = User.get_total_users_per_state(state)
+
+        # Get user details for the state (excluding the executive)
+        user_details = []
+        for user in User.query.filter(User.state == state, User.id != current_user_id).all():
+            user_details.append({
+                'address': user.address,
+                'email': user.email,
+                'name': user.first_name + ' ' + user.last_name,
+                'phone_number': user.phone_number
+            })
+
+        # Get executive's profile details
+        profile_details = {
+            'name': current_user.first_name + ' ' + current_user.last_name,
+            'email': current_user.email,
+            'phone_number': current_user.phone_number,
+            'state': current_user.state,
+            'earnings': current_user.earnings
+        }
+
+        # Construct the response JSON
+        response = {
+            'state': state,
+            'total_registrations': total_registrations,
+            'profile_details': profile_details,
+            'state_registrations': user_details
+        }
+
+        return jsonify(response), 200
+    except Exception as e:
+        print("Error fetching executive dashboard:", str(e))
+        return jsonify(message="An error occurred"), 500
+
+
+@app.route('/admin-dashboard')
+@jwt_required()
+@require_role(['Admin', 'Super Admin'])
+def admin_dashboard():
+    try:
+        current_user_id = get_jwt_identity()
+        current_user = User.query.get(current_user_id)
+
+        # Get total number of registered users
+        total_users = User.get_total_registered_users()
+
+        # Get total number of registered executives
+        total_executives = User.query.filter_by(role_id=3).count()
+
+        # Get total number of registered interns
+        total_interns = User.query.filter_by(role_id=5).count()
+
+        # Get total number of registered mobilizers
+        total_mobilizers = User.query.filter_by(role_id=4).count()
+
+        # Get total number of referrals
+        total_referrals = SuccessfulPayment.query.count()
+
+        # Get referral data
+        referrals = []
+        for payment in SuccessfulPayment.query.all():
+            referrer = db.session.query(User).filter_by(
+                id=payment.user_id).first()
+            referred = db.session.query(User).filter_by(
+                id=referrer.referred_by_id).first()
+
+            referrer_name = f"{referrer.first_name} {referrer.last_name}"
+            referred_name = f"{referred.first_name} {referred.last_name}" if referred else "No Referral"
+
+            referrals.append({
+                'referred_name': referred_name,
+                'referrer_name': referrer_name
+            })
+
+        # Get details for all interns, mobilizers, and executives
+        interns_data = get_role_data(5)
+        mobilizers_data = get_role_data(4)
+        executives_data = get_role_data(3)
+
+        # Construct the response JSON
+        response = {
+            'name': current_user.first_name + ' ' + current_user.last_name,
+            'phone_number': current_user.phone_number,
+            'email': current_user.email,
+            'role': current_user.role.role_name,
+            'total_users': total_users,
+            'total_executives': total_executives,
+            'total_interns': total_interns,
+            'total_mobilizers': total_mobilizers,
+            'total_referrals': total_referrals,
+            'referrals': referrals,
+            'interns_data': interns_data,
+            'mobilizers_data': mobilizers_data,
+            'executives_data': executives_data,
+            'profile_image': current_user.profile_image
+        }
+
+        return jsonify(response), 200
+    except Exception as e:
+        print("Error fetching admin dashboard:", str(e))
+        return jsonify(message="An error occurred"), 500
+
+
+def get_role_data(role_id):
+    role_data = []
+    for user in User.query.filter_by(role_id=role_id).all():
+        role_data.append({
+            'name': user.first_name + ' ' + user.last_name,
+            'email': user.email,
+            'phone_number': user.phone_number,
+            'state': user.state,
+            'address': user.address,
+            'has_paid': user.has_paid
+        })
+    return role_data
+
+
+@app.route('/create-admin', methods=['POST'])
+def create_admin():
+    try:
+        email = "Admin@Enet.com"
+        password = email  # Use the email as the password for simplicity
+        first_name = "To Be Edited"
+        last_name = "To Be Edited"
+        phone_number = "To Be Edited"
+        address = "To Be Edited"
+
+        role_name = "Admin"  # Assuming 'Executives' is the role name for executives
+
+        # Check if the executive already exists
+        existing_admin = User.query.filter_by(email=email).first()
+        if not existing_admin:
+            # Create a new executive user
+            role = Role.query.filter_by(role_name=role_name).first()
+            if role:
+                new_admin = User(
+                    first_name=first_name,
+                    last_name=last_name,
+                    email=email,
+                    password=bcrypt_sha256.hash(password),
+                    phone_number=phone_number,
+                    role=role,
+                    state="Null",  # Set the state to the current state being iterated
+                    address=address,
+                    local_government="To Be Edited",
+                    is_email_verified=True,  # Mark email as verified for simplicity
+                    account=generate_account_number(),
+                    enairaId=generate_enaira_id(),
+                )
+
+                db.session.add(new_admin)
+                db.session.commit()
+
+        return jsonify(message="Admin created successfully"), 201
+    except Exception as e:
+        db.session.rollback()
+        print("Error creating Admin:", str(e))
+        return jsonify(message="Failed to create Admin"), 500
 
 
 if __name__ == "__main__":
