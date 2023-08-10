@@ -1,4 +1,9 @@
 /__pycache__/
 /venv/
 /instance
-/.vscode
+.vscode
+.gitignore
+./__pycache__
+.env
+./env
+/.env
