@@ -106,6 +106,7 @@ def upload_image_to_cloudinary(image):
         image,
         quality='auto:low',  # Set compression quality
     )
+    #
 
     # Get the public URL of the uploaded image from the Cloudinary response
     image_url = result['url']
