@@ -29,8 +29,8 @@ class ApplicationConfig:
     # MAIL_SERVER = 'smtp25.elasticemail.com'
     MAIL_SERVER = 'smtp.elasticemail.com'
     MAIL_PORT = 2525
-    MAIL_USERNAME = 'enetworksagencybanking@gmail.com'
-    MAIL_PASSWORD = "E9A54FA20AD4D93955A76BEDD66A483174DD"
+    MAIL_USERNAME = 'support@enetworksagencybanking.com.ng'
+    MAIL_PASSWORD = "A2CDE2AB8EEE085BBF14DFF4D75315C7BF75"
     MAIL_USE_TLS = True
     DATABASE_INITIALIZED = False
 
