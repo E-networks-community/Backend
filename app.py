@@ -39,7 +39,6 @@ app.config.from_object(ApplicationConfig)
 CORS(app, allow_headers=True, supports_credentials=True)
 bcrypt = Bcrypt(app)
 jwt = JWTManager(app)
-app.config['DATABASE_INITIALIZED'] = False
 mail = Mail(app)
 migrate = Migrate(app, db)
 server_session = Session(app)
@@ -103,7 +102,11 @@ VALID_STATES = [
 
 def upload_image_to_cloudinary(image):
     # Upload the image to Cloudinary
-    result = cloudinary.uploader.upload(image)
+    result = cloudinary.uploader.upload(
+        image,
+        quality='auto:low',  # Set compression quality
+    )
+    #
 
     # Get the public URL of the uploaded image from the Cloudinary response
     image_url = result['url']
@@ -180,20 +183,13 @@ def send_otp_to_email_for_reset(email, otp):
 
 
 def send_reciept_to_user(email, user_name):
-    subject = "E-networks Digital Card Reciept"
-
-    msg_body = f"Welcome, {user_name}\n\n" \
-               f"You have successfully Enrolled for the E-Networks Technologies Ltd 1Million E-NAIRA/REGULAR POS AGENT INTERNSHIP PROGRAM.\n" \
-               f"Please await your letter of engagement after your training.\n\n" \
-               f"You are to join the Telegram groupvia this link immediately \n\n" \
-               f"https://t.me/+VOi70dUobeU1YTBk.\n\n" \
-               f"1Million E-NAIRA/REGULAR POS AGENT INTERNSHIP PROGRAM"
+    subject = "E-networks Digital Card Receipt"
 
     try:
         result = send_email_with_no_otp(
-            email, subject, 'reciept', user_name=user_name, msg_body=msg_body)
+            email, subject, 'reciept', user_name=user_name)
         if result:
-            return "Email sent.....", 200
+            return "Email sent successfully", 200
         else:
             return jsonify(message='Failed to send email'), 500
     except Exception as e:
@@ -220,9 +216,8 @@ def send_email_with_otp(to, subject, template, otp, **kwargs):
 
 def send_email_with_no_otp(to, subject, template, user_name, **kwargs):
     msg = Message(subject, recipients=[to], sender=app.config['MAIL_USERNAME'])
-    msg.body = "Hello"
     msg.html = render_template(
-        template + '.html', user_email=to, user_name=user_name, **kwargs)
+        template + '.html', user_name=user_name, **kwargs)
 
     try:
         mail.send(msg)
@@ -240,23 +235,16 @@ def send_email_with_no_otp(to, subject, template, user_name, **kwargs):
 def send_otp_to_email_for_verify(email, otp):
     subject = "E-networksCommunity Verify Email"
 
-    msg_body = f"Dear user,\n\n" \
-               f"Verify your Email: {email}\n" \
-               f"Your OTP for Email verification is: {otp}\n\n" \
-               f"Please use this OTP to Verify your password. If you didn't create this Request, " \
-               f"you can ignore this email.\n\n" \
-               f"Thank you!"
-
     try:
-        result = send_email_with_otp(
-            email, subject, 'verify_email', otp=otp, msg_body=msg_body)
+        result = send_email_with_otp(email, subject, 'verify_email', otp=otp)
         if result:
-            return "Email sent.....", 200
+            return "Email sent successfully", 200
         else:
             return jsonify(message='Failed to send email'), 500
     except Exception as e:
         print(e)
         return jsonify(message='An error occurred while sending the email'), 500
+
 ####################################################################
 ####################################################################
 ####################################################################
@@ -607,8 +595,8 @@ def dashboard():
     referral_list = user.get_referral_list()
     # Add the referral list to the user data dictionary
     user_data['referral_list'] = referral_list
-    referral_history = user.get_referral_history()
-    user_data['recent_referral_history'] = referral_history
+    # referral_history = user.get_referral_history()
+    # user_data['recent_referral_history'] = referral_history
 
     # Return the user's data as a JSON response
     return jsonify(user_data), 200
@@ -775,29 +763,29 @@ def get_all_users():
 
 #     return jsonify(user_data)
 
-@app.route('/users/<user_id>', methods=['GET'])
-def get_user_by_id(user_id):
-    try:
-        user = User.query.get(user_id)
-        if user:
-            user_data = {
-                'id': user.id,
-                'first_name': user.first_name,
-                'last_name': user.last_name,
-                'email': user.email,
-                'profile_image': user.profile_image,
-                "earnings": user.earnings,
-                'role': user.role.role_name if user.role else None,
-                'created_at': user.created_at,
-                'modified_at': user.modified_at,
-                "is_email_verified": user.is_email_verified
-            }
-            return jsonify(user_data), 200
-        else:
-            return jsonify(message='User not found'), 404
-    except Exception as e:
-        print(e)
-        return jsonify(message='An error occurred while fetching the user'), 500
+# @app.route('/users/<user_id>', methods=['GET'])
+# def get_user_by_id(user_id):
+#     try:
+#         user = User.query.get(user_id)
+#         if user:
+#             user_data = {
+#                 'id': user.id,
+#                 'first_name': user.first_name,
+#                 'last_name': user.last_name,
+#                 'email': user.email,
+#                 'profile_image': user.profile_image,
+#                 "earnings": user.earnings,
+#                 'role': user.role.role_name if user.role else None,
+#                 'created_at': user.created_at,
+#                 'modified_at': user.modified_at,
+#                 "is_email_verified": user.is_email_verified
+#             }
+#             return jsonify(user_data), 200
+#         else:
+#             return jsonify(message='User not found'), 404
+#     except Exception as e:
+#         print(e)
+#         return jsonify(message='An error occurred while fetching the user'), 500
 
 
 @app.route('/get/<referral_code>', methods=['GET'])
@@ -1014,16 +1002,23 @@ def get_all_execs():
     return jsonify(exec_data)
 
 
-@app.route("/upload-image", methods=["POST"])
+@app.route('/upload', methods=['POST'])
 def upload_image():
-    image = request.files.get("image")
-    # Upload the image to Cloudinary
-    result = cloudinary.uploader.upload(image)
+    try:
+        print("Started uploading")
+        image = request.files['image']
+        if not image:
+            return jsonify({'error': 'No image provided'}), 400
 
-    # Get the public URL of the uploaded image from the Cloudinary response
-    image_url = result['url']
+        # Upload the image to Cloudinary and set the compression settings
+        result = cloudinary.uploader.upload(
+            image,
+            quality='auto:low',  # Set compression quality
+        )
 
-    return f"Image uploaded successfully with URL: {image_url}"
+        return jsonify({'url': result['secure_url']})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 
 @app.route("/logout", methods=["POST"])

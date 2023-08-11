@@ -3,19 +3,29 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <!-- <title>Enetworks Email Verification</title> -->
     <title>E-networks Email Verification</title>
   </head>
   <body>
-    <!-- <h1>eNetworksCommunity Verify Email</h1> -->
-    <h1>E-networks Verify Email</h1>
-    <p>Dear lovely user,</p>
-    <p>Verify your Email: <b>{{ user_email }}</b></p>
-    <p>Your OTP for Email verification is: <strong>{{ otp }}</strong></p>
+    <h1>Verify Your Email with E-networks</h1>
+    <p>Hello,</p>
     <p>
-      Please use this OTP to Verify your Email. If you didn't create an Account,
-      you can ignore this email.
+      We are excited to have you as part of the E-networks community! Please
+      verify your email address to get started:
     </p>
-    <p>Thank you!</p>
+    <p>Email: <b>{{ user_email }}</b></p>
+    <p>
+      Your One-Time Passcode (OTP) for email verification:
+      <strong>{{ otp }}</strong>
+    </p>
+    <p>
+      Please enter this code in the verification process. This helps us ensure
+      the security of your account.
+    </p>
+    <p>
+      If you did not sign up for an account with E-networks, you can safely
+      ignore this email.
+    </p>
+    <p>Thank you for joining us!</p>
+    <p>Sincerely, <br />The E-networks Team</p>
   </body>
 </html>
