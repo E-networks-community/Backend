@@ -24,8 +24,7 @@ class ApplicationConfig:
 
     DATABASE_ENGINE = create_engine(SQLALCHEMY_DATABASE_URI)
     SESSION_TYPE = os.environ.get("SESSION_TYPE")
-    RED = os.environ.get("REDIS_URL")
-    REDIS_URL = f"redis://{RED}"
+    REDIS_URL = "redis://default:WrwSdqAH5iITwzhp8APu@containers-us-west-207.railway.app:6006"
     SESSION_REDIS = redis.from_url(REDIS_URL)
     SESSION_KEY_PREFIX = os.environ.get("SESSION_KEY_PREFIX")
     # SESSION_REDIS = redis_client
