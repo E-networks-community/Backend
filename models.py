@@ -28,29 +28,33 @@ class User(db.Model):
                    default=lambda: str(uuid.uuid4()), unique=True)
     first_name = db.Column(db.String(50), nullable=False)
     last_name = db.Column(db.String(50), nullable=False)
-    email = db.Column(db.String(255), unique=True, nullable=False)
+    email = db.Column(db.String(255), unique=True,
+                      nullable=False, index=True)  # Add index=True here
     password = db.Column(db.String(255), nullable=False)
-    phone_number = db.Column(db.String(20))
-    referral_code = db.Column(db.String(10), unique=True, nullable=True)
-    local_government = db.Column(db.String(100))
-    state = db.Column(db.String(100))
-    address = db.Column(db.String(255))
-    bank_name = db.Column(db.String(255))
-    referral_link = db.Column(db.String(255), unique=True, nullable=True)
+    phone_number = db.Column(db.String(20), index=True)
+    referral_code = db.Column(
+        db.String(10), unique=True, nullable=True, index=True)
+    local_government = db.Column(db.String(100), index=True)
+    state = db.Column(db.String(100), index=True)
+    address = db.Column(db.String(255), index=True)
+    bank_name = db.Column(db.String(255), index=True)
+    referral_link = db.Column(
+        db.String(255), unique=True, nullable=True, index=True)
     otps = db.relationship('OTP', backref='user', lazy='dynamic')
     # New column to store the referrer's ID
-    referred_by_id = db.Column(
-        db.String(36), db.ForeignKey('user.id'), nullable=True)
+    referred_by_id = db.Column(db.String(36), db.ForeignKey(
+        'user.id'), nullable=True, index=True)
 
-    role_id = db.Column(db.Integer, db.ForeignKey('role.id'), nullable=False)
-    account = db.Column(BigInteger)
-    enairaId = db.Column(db.String(255), nullable=True)
+    role_id = db.Column(db.Integer, db.ForeignKey(
+        'role.id'), nullable=False, index=True)
+    account = db.Column(BigInteger, index=True)
+    enairaId = db.Column(db.String(255), nullable=True, index=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     modified_at = db.Column(db.DateTime, default=datetime.utcnow)
-    earnings = db.Column(db.Float, default=0.0)
-    profile_image = db.Column(db.TEXT, default=None)
-    is_email_verified = db.Column(db.Boolean, default=False)
-    has_paid = db.Column(db.Boolean, default=False)
+    earnings = db.Column(db.Float, default=0.0, index=True)
+    profile_image = db.Column(db.TEXT, default=None, index=True)
+    is_email_verified = db.Column(db.Boolean, default=False, index=True)
+    has_paid = db.Column(db.Boolean, default=False, index=True)
     referred_users = db.relationship('User', backref=db.backref(
         'referrer', remote_side=[id]), lazy='dynamic')
 
@@ -105,7 +109,7 @@ class User(db.Model):
             # Add this line to include total_referred_users
             'total_referred_users': self.get_total_referred_users(),
             'total_registered_users': User.get_total_registered_users(),  # Total registered users
-            'recent_referral_history': self.get_recent_referral_history(),  # Recent referral histor
+            # 'recent_referral_history': self.get_recent_referral_history(),  # Recent referral histor
         }
 
     def get_total_referred_users(self):

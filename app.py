@@ -58,8 +58,8 @@ db.init_app(app)
 @app.after_request
 def add_cors_headers(response):
     # Replace with your frontend domain
-    # frontend_domain = 'http://localhost:3000'
-    frontend_domain = 'https://www.enetworksagencybanking.com.ng'
+    frontend_domain = 'http://localhost:3000'
+    # frontend_domain = 'https://www.enetworksagencybanking.com.ng'
     response.headers['Access-Control-Allow-Origin'] = frontend_domain
     response.headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS, PATCH'
     response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
@@ -595,8 +595,8 @@ def dashboard():
     referral_list = user.get_referral_list()
     # Add the referral list to the user data dictionary
     user_data['referral_list'] = referral_list
-    referral_history = user.get_referral_history()
-    user_data['recent_referral_history'] = referral_history
+    # referral_history = user.get_referral_history()
+    # user_data['recent_referral_history'] = referral_history
 
     # Return the user's data as a JSON response
     return jsonify(user_data), 200
@@ -763,29 +763,29 @@ def get_all_users():
 
 #     return jsonify(user_data)
 
-@app.route('/users/<user_id>', methods=['GET'])
-def get_user_by_id(user_id):
-    try:
-        user = User.query.get(user_id)
-        if user:
-            user_data = {
-                'id': user.id,
-                'first_name': user.first_name,
-                'last_name': user.last_name,
-                'email': user.email,
-                'profile_image': user.profile_image,
-                "earnings": user.earnings,
-                'role': user.role.role_name if user.role else None,
-                'created_at': user.created_at,
-                'modified_at': user.modified_at,
-                "is_email_verified": user.is_email_verified
-            }
-            return jsonify(user_data), 200
-        else:
-            return jsonify(message='User not found'), 404
-    except Exception as e:
-        print(e)
-        return jsonify(message='An error occurred while fetching the user'), 500
+# @app.route('/users/<user_id>', methods=['GET'])
+# def get_user_by_id(user_id):
+#     try:
+#         user = User.query.get(user_id)
+#         if user:
+#             user_data = {
+#                 'id': user.id,
+#                 'first_name': user.first_name,
+#                 'last_name': user.last_name,
+#                 'email': user.email,
+#                 'profile_image': user.profile_image,
+#                 "earnings": user.earnings,
+#                 'role': user.role.role_name if user.role else None,
+#                 'created_at': user.created_at,
+#                 'modified_at': user.modified_at,
+#                 "is_email_verified": user.is_email_verified
+#             }
+#             return jsonify(user_data), 200
+#         else:
+#             return jsonify(message='User not found'), 404
+#     except Exception as e:
+#         print(e)
+#         return jsonify(message='An error occurred while fetching the user'), 500
 
 
 @app.route('/get/<referral_code>', methods=['GET'])
