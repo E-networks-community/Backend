@@ -83,6 +83,7 @@ class User(db.Model):
         ).limit(limit).all()
 
         return history
+#
 
     def to_dict(self):
         # Get the ID of the referrer or None if no referrer
