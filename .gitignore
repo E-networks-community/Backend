@@ -10,3 +10,7 @@ __pycache__/
 /.env
 env
 /migrations/
+.Backend.code-workspace
+/.Backend.code-workspace
+/Backend.code-workspace
+/co

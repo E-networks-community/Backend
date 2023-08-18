@@ -97,6 +97,7 @@ class User(db.Model):
             'phone_number': self.phone_number,
             'referral_code': self.referral_code,
             'referral_link': self.referral_link,
+            "referred_by_id": self.referred_by_id,
             'referred_me': referred_me,  # Set the referred_me attribute to the ID of the referrer
             'role_id': self.role_id,
             'role': self.role.role_name,
