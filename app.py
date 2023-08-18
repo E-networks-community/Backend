@@ -847,7 +847,7 @@ def initialize_payment():
                 "name": user.first_name,
                 "email_address": user.email,
                 "phone_number": user.phone_number,
-                "amount": 50,
+                "amount": 1500,
                 "currency": "NGN",
                 "user_bear_charge": "no",
                 "preferred_payment_option": "card",
