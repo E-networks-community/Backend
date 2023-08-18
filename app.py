@@ -843,7 +843,7 @@ def initialize_payment():
                 "request_type": "live",
                 "merchant_tx_ref": transaction_reference,
                 # "redirect_url": f"https://enetworks-tovimikailu.koyeb.app/pay/{user_id}/verify",
-                "redirect_url": f"https://",
+                "redirect_url": f"https://www.enetworksagencybanking.com.ng/",
                 "name": user.first_name,
                 "email_address": user.email,
                 "phone_number": user.phone_number,
