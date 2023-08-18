@@ -1,4 +1,3 @@
-from sqlalchemy.exc import SQLAlchemyError
 from functools import wraps
 import json
 import uuid
@@ -8,6 +7,7 @@ from flask_migrate import Migrate
 from flask_cors import CORS
 from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
 from flask_session import Session
+from sqlalchemy.exc import SQLAlchemyError
 from models import SuccessfulPayment, OTP
 from config import ApplicationConfig
 from models import Role, db, User, create_roles
@@ -59,8 +59,8 @@ db.init_app(app)
 @app.after_request
 def add_cors_headers(response):
     # Replace with your frontend domain
-    # frontend_domain = 'http://localhost:3000'
-    frontend_domain = 'https://www.enetworksagencybanking.com.ng'
+    frontend_domain = 'http://localhost:3000'
+    # frontend_domain = 'https://www.enetworksagencybanking.com.ng'
     response.headers['Access-Control-Allow-Origin'] = frontend_domain
     response.headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS, PATCH'
     response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
@@ -307,115 +307,118 @@ def register_intern():
 def register_mobilizer():
     return register_user(role_name='Mobilizer')
 
-####################################################################
-####################################################################
-####################################################################
-####################################################################
-# Add referral_link as a parameter with a default value of None
-
 
 def register_user(role_name, referrer_id=None):
-    # Use request.form.to_dict() to get the form data (excluding files)
-    data = request.form.to_dict()
-    profile_image = request.files.get('profile_image')
-
-    if not data:
-        return jsonify(message='No data provided in the request'), 400
-
-    if not profile_image:
-        return jsonify(message='Profile image is required'), 400
-
-    # Extract user registration data from the JSON request
-    first_name = data.get('first_name')
-    last_name = data.get('last_name')
-    email = data.get('email')
-    password = data.get('password')
-    phone_number = data.get('phone_number')
-    referral_code = data.get('referral_code')
-
-    # New fields
-    state = data.get('state')
-    local_government_area = data.get('local_government_area')
-    address = data.get('address')
-    account = data.get('account')
-    bankName = data.get('bankName')
-    enairaId = data.get('enaira_Id', None)
-
-    if not all([first_name, last_name, email, password, phone_number, state, local_government_area, address, account, bankName]):
-        return jsonify(message='Missing required fields in the request'), 400
-
-    # Check if the email is already in use
-    if User.query.filter_by(email=email).first():
-        return jsonify(message='Email already registered'), 409
-
-    # Validate state
-    if state not in VALID_STATES:
-        return jsonify(message='Invalid state provided'), 400
-
-    # Check if the referral code exists and get the referrer user
-    referrer = None
-    if referral_code:
-        referrer = User.query.filter_by(referral_code=referral_code).first()
-        if not referrer:
-            return jsonify(message='Invalid referral code provided'), 400
-
-    # Get the appropriate role based on the role_name provided
-    role = Role.query.filter_by(role_name=role_name).first()
-    if not role:
-        return jsonify(message=f'Invalid role_name provided: {role_name}'), 400
-
-    # Generate a unique referral code for the new user
-    hashed_password = bcrypt_sha256.hash(password)
-
-    new_user_referral_code = generate_referral_code()
-
-    new_user = User(
-        first_name=first_name,
-        last_name=last_name,
-        email=email,
-        password=hashed_password,
-        phone_number=phone_number,
-        referral_code=new_user_referral_code,
-        role=role,
-        referred_by_id=referrer_id,
-        state=state,
-        local_government=local_government_area,
-        address=address,
-        enairaId=enairaId,
-        account=account,
-        bank_name=bankName
-    )
-
     try:
-        if profile_image and allowed_file(profile_image.filename):
-            # Upload the profile image to Cloudinary
-            profile_image_url = upload_image_to_cloudinary(profile_image)
-            new_user.profile_image = profile_image_url
+        # Begin a new database transaction
+        with app.app_context():
+            # Use request.form.to_dict() to get the form data (excluding files)
+            data = request.form.to_dict()
+            profile_image = request.files.get('profile_image')
 
-        # Save the referral link before committing the user object
-        new_user.referral_link = new_user.generate_referral_link()
+            if not data:
+                return jsonify(message='No data provided in the request'), 400
 
-        # Commit the user object with the referral link and profile image (if any)
-        db.session.add(new_user)
-        db.session.commit()
+            if not profile_image:
+                return jsonify(message='Profile image is required'), 400
 
-        email_verification_otp = generate_otp()
+            # Extract user registration data from the JSON request
+            first_name = data.get('first_name')
+            last_name = data.get('last_name')
+            email = data.get('email')
+            password = data.get('password')
+            phone_number = data.get('phone_number')
+            referral_code = data.get('referral_code')
 
-        otp = OTP(user_id=new_user.id, email=new_user.email,
-                  otp=email_verification_otp)
-        db.session.add(otp)
-        db.session.commit()
+            # New fields
+            state = data.get('state')
+            local_government_area = data.get('local_government_area')
+            address = data.get('address')
+            account = data.get('account')
+            bankName = data.get('bankName')
+            enairaId = data.get('enaira_Id', None)
 
-        # Send the OTP to the user's email for verification
-        send_otp_to_email_for_verify(new_user.email, email_verification_otp)
+            if not all([first_name, last_name, email, password, phone_number, state, local_government_area, address, account, bankName]):
+                return jsonify(message='Missing required fields in the request'), 400
 
-        # Save the OTP in the user's session for verification later
-        identity = {"user_id": str(
-            new_user.id), "email_verification_otp": email_verification_otp}
-        access_token = create_access_token(identity=json.dumps(identity))
+            # Check if the email is already in use
+            if User.query.filter_by(email=email).first():
+                return jsonify(message='Email already registered'), 409
 
-        return jsonify({"access_token": access_token, "role": new_user.role.role_name, "otp": email_verification_otp}), 200
-    except Exception as e:
+            # Validate state
+            if state not in VALID_STATES:
+                return jsonify(message='Invalid state provided'), 400
+
+            # Check if the referral code exists and get the referrer user
+
+            if referral_code:
+                referrer = User.query.filter_by(
+                    referral_code=referral_code).first()
+                if not referrer:
+                    return jsonify(message='Invalid referral code provided'), 400
+            else:
+                referrer = None
+
+            # Get the appropriate role based on the role_name provided
+            role = Role.query.filter_by(role_name=role_name).first()
+            if not role:
+                return jsonify(message=f'Invalid role_name provided: {role_name}'), 400
+
+            # Generate a unique referral code for the new user
+            hashed_password = bcrypt_sha256.hash(password)
+
+            new_user_referral_code = generate_referral_code()
+
+            new_user = User(
+                first_name=first_name,
+                last_name=last_name,
+                email=email,
+                password=hashed_password,
+                phone_number=phone_number,
+                referral_code=new_user_referral_code,
+                role=role,
+                referred_by_id=referrer_id,
+                state=state,
+                local_government=local_government_area,
+                address=address,
+                enairaId=enairaId,
+                account=account,
+                bank_name=bankName
+            )
+
+            db.session.add(new_user)
+            db.session.commit()
+
+            if profile_image and allowed_file(profile_image.filename):
+                # Upload the profile image to Cloudinary
+                profile_image_url = upload_image_to_cloudinary(profile_image)
+                new_user.profile_image = profile_image_url
+
+            # Save the referral link before committing the user object
+            new_user.referral_link = new_user.generate_referral_link()
+
+            # Commit the user object with the referral link and profile image (if any)
+            db.session.commit()
+
+            email_verification_otp = generate_otp()
+
+            otp = OTP(user_id=new_user.id, email=new_user.email,
+                      otp=email_verification_otp)
+            db.session.add(otp)
+            db.session.commit()
+
+            # Send the OTP to the user's email for verification
+            send_otp_to_email_for_verify(
+                new_user.email, email_verification_otp)
+
+            # Save the OTP in the user's session for verification later
+            identity = {"user_id": str(
+                new_user.id), "email_verification_otp": email_verification_otp}
+            access_token = create_access_token(identity=json.dumps(identity))
+
+            return jsonify({"access_token": access_token, "role": new_user.role.role_name, "otp": email_verification_otp}), 200
+
+    except SQLAlchemyError as e:
         db.session.rollback()
         print("Error during user registration:", str(e))
         return jsonify(message='Failed to register user. Please try again later.'), 500
@@ -487,113 +490,67 @@ def verify_email():
         return jsonify(message='Failed to verify email. Please try again later.'), 500
 
 
-@app.route("/referral/<referral_code>", methods=["POST"])
-def register_user_with_referral(referral_code):
+# @app.route('/referral/<referral_code>', methods=['POST'])
+# def register_with_referral(referral_code):
+#     data = request.form.to_dict()
+#     email = data.get('email')
+#     password = data.get('password')
+#     first_name = data.get('first_name')
+#     last_name = data.get('last_name')
+#     phone_number = data.get('phone_number')
+#     profile_image = request.files.get('profile_image')
+
+#     if not all([email, password, first_name, last_name, phone_number, profile_image]):
+#         return jsonify(message='Missing required fields in the request'), 400
+
+#     # Check if the referral code exists and get the referrer user
+#     referrer = User.query.filter_by(referral_code=referral_code).first()
+#     if not referrer:
+#         return jsonify(message='Invalid referral code provided'), 400
+
+#     if User.query.filter_by(email=email).first():
+#         return jsonify(message='Email already registered'), 409
+
+#     try:
+#         # Call the register_user function with the role_name "Intern" and referrer_id
+#         register_user("Intern", referrer.id)
+#     except ValueError as e:
+#         return jsonify(message=str(e)), 400
+
+#     return jsonify(message="Register complete"), 200
+
+@app.route('/referral/<referral_code>', methods=['POST'])
+def register_with_referral(referral_code):
+    data = request.form.to_dict()
+    email = data.get('email')
+    password = data.get('password')
+    first_name = data.get('first_name')
+    last_name = data.get('last_name')
+    phone_number = data.get('phone_number')
+    profile_image = request.files.get('profile_image')
+
+    if not all([email, password, first_name, last_name, phone_number, profile_image]):
+        return jsonify(message='Missing required fields in the request'), 400
+
+    # Check if the referral code exists and get the referrer user
+    referrer = User.query.filter_by(referral_code=referral_code).first()
+    if not referrer:
+        return jsonify(message='Invalid referral code provided'), 400
+
+    if User.query.filter_by(email=email).first():
+        return jsonify(message='Email already registered'), 409
+
+    # Check if the referrer's ID is set and not None
+    if not referrer.id:
+        return jsonify(message='Invalid referral link'), 400
+
     try:
-        # Retrieve the user data from the request form
-        data = request.form.to_dict()
-        profile_image = request.files.get('profile_image')
+        # Call the register_user function with the role_name "Intern" and referrer_id
+        register_user("Intern", referrer.id)
+    except ValueError as e:
+        return jsonify(message=str(e)), 400
 
-        if not data:
-            return jsonify(message='No data provided in the request'), 400
-
-        if not profile_image:
-            return jsonify(message='Profile image is required'), 400
-
-        # Extract user registration data from the JSON request
-        first_name = data.get('first_name')
-        last_name = data.get('last_name')
-        email = data.get('email')
-        password = data.get('password')
-        phone_number = data.get('phone_number')
-
-        # New fields
-        state = data.get('state')
-        local_government_area = data.get('local_government_area')
-        address = data.get('address')
-        account = data.get('account')
-        bankName = data.get('bankName')
-        enairaId = data.get('enaira_Id', None)
-
-        if not all([first_name, last_name, email, password, phone_number, state, local_government_area, address, account, bankName]):
-            return jsonify(message='Missing required fields in the request'), 400
-
-        # Check if the email is already in use
-        if User.query.filter_by(email=email).first():
-            return jsonify(message='Email already registered'), 409
-
-        # Validate state
-        if state not in VALID_STATES:
-            return jsonify(message='Invalid state provided'), 400
-
-        # Check if the referral code exists and get the referrer user
-        referrer = User.query.filter_by(referral_code=referral_code).first()
-        if not referrer:
-            return jsonify(message='Invalid referral code provided'), 400
-
-        # Get the appropriate role (e.g., "Intern") based on the role_name
-        role_name = "Intern"  # Change this to the desired role name
-        role = Role.query.filter_by(role_name=role_name).first()
-        if not role:
-            return jsonify(message=f'Invalid role_name provided: {role_name}'), 400
-
-        # Generate a unique referral code for the new user
-        hashed_password = bcrypt_sha256.hash(password)
-        new_user_referral_code = generate_referral_code()
-
-        # Create the new user with referral information
-        new_user = User(
-            first_name=first_name,
-            last_name=last_name,
-            email=email,
-            password=hashed_password,
-            phone_number=phone_number,
-            referral_code=new_user_referral_code,
-            role=role,
-            referred_by_id=referrer.id,  # Set the referrer ID
-            state=state,
-            local_government=local_government_area,
-            address=address,
-            enairaId=enairaId,
-            account=account,
-            bank_name=bankName
-        )
-
-        db.session.add(new_user)
-        db.session.commit()
-
-        if profile_image and allowed_file(profile_image.filename):
-            # Upload the profile image to Cloudinary
-            profile_image_url = upload_image_to_cloudinary(profile_image)
-            new_user.profile_image = profile_image_url
-
-        # Save the referral link before committing the user object
-        new_user.referral_link = new_user.generate_referral_link()
-
-        # Commit the user object with the referral link and profile image (if any)
-        db.session.commit()
-
-        email_verification_otp = generate_otp()
-
-        otp = OTP(user_id=new_user.id, email=new_user.email,
-                  otp=email_verification_otp)
-        db.session.add(otp)
-        db.session.commit()
-
-        # Send the OTP to the user's email for verification
-        send_otp_to_email_for_verify(new_user.email, email_verification_otp)
-
-        # Save the OTP in the user's session for verification later
-        identity = {"user_id": str(
-            new_user.id), "email_verification_otp": email_verification_otp}
-        access_token = create_access_token(identity=json.dumps(identity))
-
-        return jsonify({"access_token": access_token, "role": new_user.role.role_name, "otp": email_verification_otp}), 200
-
-    except SQLAlchemyError as e:
-        db.session.rollback()
-        print("Error during user registration:", str(e))
-        return jsonify(message='Failed to register user. Please try again later.'), 500
+    return jsonify(message="Register complete"), 200
 
 
 @app.route('/edit-user', methods=['PATCH'])
@@ -618,9 +575,25 @@ def edit_user():
             hashed_password = bcrypt_sha256.hash(new_password)
             user.password = hashed_password
 
+        if 'email' in data:
+            email = data.get("email")
+            user.email = email
+
+        if 'phone_number' in data:
+            phone_number = data.get("phone_number")
+            user.phone_number = phone_number
+
+        if 'local_government_area' in data:
+            lga = data.get("local_government_area")
+            user.lga = lga
+
         if 'address' in data:
             address = data.get("address")
             user.address = address
+
+        if 'account' in data:
+            account = data.get("account")
+            user.account = account
 
         # Commit the changes to the database
         db.session.commit()
@@ -745,9 +718,25 @@ def reset_password():
     return jsonify(message='Password updated successfully'), 200
 
 
+# @app.route('/users', methods=['GET'])
+# def get_all_users():
+#     users = User.query.all()
+#     user_data = [{
+#         'id': user.id,
+#         # 'full_name': user.full_name,
+#         'first_name': user.first_name,
+#         'last_name': user.last_name,
+#         'email': user.email,
+#         'profile_image': user.profile_image,
+#         'has_paid': user.has_paid,
+#         'role': user.role.role_name,
+#         'created_at': user.created_at,
+#         'modified_at': user.modified_at,
+#         "is_email_verified": user.is_email_verified
+#     } for user in users]
+#     return jsonify(user_data)
+
 @app.route('/users', methods=['GET'])
-@jwt_required()
-@require_role(['Admin', 'Super Admin', "Executives"])
 def get_all_users():
     try:
         users = User.query.all()
@@ -760,6 +749,9 @@ def get_all_users():
                     'first_name': user.first_name,
                     'last_name': user.last_name,
                     'email': user.email,
+                    "phone_number": user.phone_number,
+                    "has_paid": user.has_paid,
+                    "referred_me": user.referred_by_id,
                     'role': user.role.role_name,  # Access role_name only if user.role is not None
                 }
             else:
@@ -781,8 +773,6 @@ def get_all_users():
 
 
 @app.route('/users/<user_id>', methods=['GET'])
-@jwt_required()
-@require_role(['Admin', 'Super Admin', "Executives"])
 def get_user_by_id(user_id):
     user = User.query.get(user_id)
     if not user:
@@ -794,8 +784,6 @@ def get_user_by_id(user_id):
 
 
 @app.route('/users/<user_id>/referrals', methods=['GET'])
-@jwt_required()
-@require_role(['Admin', 'Super Admin', "Executives"])
 def get_user_referrals(user_id):
     user = User.query.get(user_id)
     if not user:
@@ -806,9 +794,33 @@ def get_user_referrals(user_id):
     return jsonify(referral_list)
 
 
+# @app.route('/users/<user_id>', methods=['GET'])
+# def get_user_by_id(user_id):
+#     try:
+#         user = User.query.get(user_id)
+#         if user:
+#             user_data = {
+#                 'id': user.id,
+#                 'first_name': user.first_name,
+#                 'last_name': user.last_name,
+#                 'email': user.email,
+#                 'profile_image': user.profile_image,
+#                 "earnings": user.earnings,
+#                 'role': user.role.role_name if user.role else None,
+#                 'created_at': user.created_at,
+#                 'modified_at': user.modified_at,
+#                 "is_email_verified": user.is_email_verified,
+#                 "referred_me": user.referred_me
+#             }
+#             return jsonify(user_data), 200
+#         else:
+#             return jsonify(message='User not found'), 404
+#     except Exception as e:
+#         print(e)
+#         return jsonify(message='An error occurred while fetching the user'), 500
+
+
 @app.route('/get/<referral_code>', methods=['GET'])
-@jwt_required()
-@require_role(['Admin', 'Super Admin', "Executives"])
 def check_ref_code(referral_code):
     referrer = User.query.filter_by(referral_code=referral_code).first()
     if not referrer:
@@ -832,7 +844,6 @@ def initialize_payment():
     try:
         # Generate a unique transaction reference (merchant_tx_ref)
         transaction_reference = user.id
-
         # verification_token = generate_verification_token(
         #     user_id, transaction_reference)
 
@@ -842,7 +853,9 @@ def initialize_payment():
                 "public_key": "MSFT_live_475HC3DIJWVV7YBMJ5X6MEXT4FUU23L",
                 "request_type": "live",
                 "merchant_tx_ref": transaction_reference,
+                # Manually construct the redirect_url with query parameters
                 "redirect_url": f"https://enetworks-tovimikailu.koyeb.app/pay/{user_id}/verify",
+                # "redirect_url": f"http://localhost:5000/pay/{user_id}/verify",
                 "name": user.first_name,
                 "email_address": user.email,
                 "phone_number": user.phone_number,
@@ -868,7 +881,11 @@ def initialize_payment():
         if response.status_code == 200 and data.get("status") == "success":
             # Update this line to access the payment URL
             payment_url = data["url"]
+
+            # Remove the extra "?" from the redirect_url before the "status" parameter
+            # redirect_url = f"http://localhost:5000/pay/{user_id}/verify"
             redirect_url = f"https://enetworks-tovimikailu.koyeb.app/pay/{user_id}/verify"
+            # Update the user's payment reference in the database
             user.payment_reference = redirect_url
             db.session.commit()
 
@@ -890,6 +907,7 @@ def verify_payment(user_id):
     status = request.args.get("status")
     transaction_reference = request.args.get("txn_ref")
     payment_reference = request.args.get("msft_ref")
+    # verification_token = request.args.get("token")
 
     print("Received values:")
     print("Transaction Reference:", transaction_reference)
@@ -984,8 +1002,6 @@ def get_all_admins():
 
 
 @app.route('/interns', methods=['GET'])
-@jwt_required()
-@require_role(['Admin', 'Super Admin', "Executives"])
 def get_all_interns():
     # Query the database to get all users with the 'Intern' role
     interns = User.query.join(Role).filter_by(role_name='Interns').all()
@@ -996,8 +1012,6 @@ def get_all_interns():
 
 
 @app.route('/mobilizer', methods=['GET'])
-@jwt_required()
-@require_role(['Admin', 'Super Admin', "Executives"])
 def get_all_mobilizer():
     # Query the database to get all users with the 'Intern' role
     mobilizers = User.query.join(Role).filter_by(role_name='Mobilizers').all()
@@ -1008,8 +1022,6 @@ def get_all_mobilizer():
 
 
 @app.route('/executives', methods=['GET'])
-@jwt_required()
-@require_role(['Admin', 'Super Admin', "Executives"])
 def get_all_execs():
     # Query the database to get all users with the 'Intern' role
     execs = User.query.join(Role).filter_by(role_name='Executives').all()
@@ -1020,8 +1032,6 @@ def get_all_execs():
 
 
 @app.route('/upload', methods=['POST'])
-@jwt_required()
-@require_role(['Admin', 'Super Admin', "Executives"])
 def upload_image():
     try:
         print("Started uploading")
@@ -1092,8 +1102,6 @@ def generate_account_number():
 
 
 @app.route('/create-executives', methods=['POST'])
-@jwt_required()
-@require_role(['Admin', 'Super Admin', "Executives"])
 def create_executives():
     valid_states = [
         'Abia', 'Adamawa', 'Akwa Ibom', 'Anambra', 'Bauchi', 'Bayelsa',
@@ -1281,8 +1289,6 @@ def get_role_data(role_id):
 
 
 @app.route('/create-admin', methods=['POST'])
-@jwt_required()
-@require_role(['Admin', 'Super Admin', "Executives"])
 def create_admin():
     try:
         email = "Admin@Enet.com"
@@ -1326,76 +1332,6 @@ def create_admin():
         return jsonify(message="Failed to create Admin"), 500
 
 
-@app.route("/webhook/payment", methods=["POST"])
-def handle_payment_webhook():
-    try:
-        data = request.json
-
-        # Extract relevant fields from the webhook payload
-        status = data.get("status")
-        transaction_reference = data.get("merchant_ref")
-        payment_reference = data.get("msft_ref")
-        # Add more fields as needed
-
-        if not status or not transaction_reference or not payment_reference:
-            return jsonify({"error": "Missing required parameters"}), 400
-
-        # Retrieve the user from the database based on the payment_reference
-        user = User.query.filter_by(id=transaction_reference).first()
-
-        if not user:
-            return jsonify({"error": "User not found"}), 404
-
-        # Check if the payment has already been processed for this user and transaction reference
-        existing_payment = SuccessfulPayment.query.filter_by(
-            user_id=user.id
-        ).first()
-
-        if existing_payment:
-            # Payment has already been processed, do not update earnings again
-            return jsonify({"message": "Payment already processed"}), 200
-
-        # Check if the payment was successful
-        if status.lower() == "success":
-            if not user.has_paid:
-                # Update user's payment status and perform earnings calculations
-                user.has_paid = True
-
-                if user.referred_me and user.referred_me.role and user.referred_me.role.role_name == "Mobilizer":
-                    referred_by_mobilizer = user.referred_me
-                    referred_by_mobilizer.earnings += 100
-                    db.session.add(referred_by_mobilizer)
-
-                if user.state:
-                    executives = User.query.filter_by(state=user.state).all()
-                    for executive in executives:
-                        if executive.role and executive.role.role_name == "Executives":
-                            executive.earnings += 50
-                            db.session.add(executive)
-
-                # Create a new entry in the SuccessfulPayment table
-                successful_payment = SuccessfulPayment(
-                    user_id=user.id,
-                    transaction_reference=transaction_reference,
-                    payment_amount=1500,  # Set the payment amount
-
-                )
-                db.session.add(successful_payment)
-
-                db.session.commit()
-
-                # Send receipt to user
-                send_reciept_to_user(user.email, user.first_name)
-
-            return jsonify({"message": "Payment processed successfully"}), 200
-        else:
-            return jsonify({"message": "Payment not successful"}), 200
-
-    except Exception as e:
-        print("Error processing payment webhook:", str(e))
-        return jsonify({"error": "An error occurred while processing the webhook"}), 500
-
-
 @app.route('/edit/<user_id>', methods=['PUT'])
 @jwt_required()  # This ensures that only authenticated users (with a valid token) can access this route
 @require_role(['Admin', 'Super Admin'])
@@ -1428,8 +1364,6 @@ def edit_user_with_id(user_id):
             user.referred_by_id = updated_data['referrer']
         if 'account' in updated_data:
             user.account = updated_data['account']
-        if 'role_id' in updated_data:
-            user.role_id = updated_data['role_id']
 
         db.session.commit()
 
@@ -1438,6 +1372,101 @@ def edit_user_with_id(user_id):
     except Exception as e:
         print(e)
         return jsonify({'message': 'An error occurred'}), 500
+
+
+@app.route("/webhook/payment", methods=["POST"])
+def handle_payment_webhook():
+    try:
+        data = request.json
+
+        # Extract relevant fields from the webhook payload
+        status = data.get("status")
+        transaction_reference = data.get("txn_ref")
+        payment_reference = data.get("msft_ref")
+        # Add more fields as needed
+
+        if not status or not transaction_reference or not payment_reference:
+            return jsonify({"error": "Missing required parameters"}), 400
+
+        # Retrieve the user from the database based on the payment_reference
+        user = User.query.filter_by(
+            payment_reference=payment_reference).first()
+
+        if not user:
+            return jsonify({"error": "User not found"}), 404
+
+        # Check if the payment has already been processed for this user and transaction reference
+        existing_payment = SuccessfulPayment.query.filter_by(
+            user_id=user.id,
+            transaction_reference=transaction_reference
+        ).first()
+
+        if existing_payment:
+            # Payment has already been processed, do not update earnings again
+            return jsonify({"message": "Payment already processed"}), 200
+
+        # Check if the payment was successful
+        if status.lower() == "successful":
+            if not user.has_paid:
+                # Update user's payment status and perform earnings calculations
+                user.has_paid = True
+
+                if user.referred_me and user.referred_me.role and user.referred_me.role.role_name == "Mobilizer":
+                    referred_by_mobilizer = user.referred_me
+                    referred_by_mobilizer.earnings += 100
+                    db.session.add(referred_by_mobilizer)
+
+                if user.state:
+                    executives = User.query.filter_by(state=user.state).all()
+                    for executive in executives:
+                        if executive.role and executive.role.role_name == "Executives":
+                            executive.earnings += 50
+                            db.session.add(executive)
+
+                db.session.commit()
+
+                # Send receipt to user
+                send_reciept_to_user(user.email, user.first_name)
+
+            return jsonify({"message": "Payment processed successfully"}), 200
+        else:
+            return jsonify({"message": "Payment not successful"}), 200
+
+    except Exception as e:
+        print("Error processing payment webhook:", str(e))
+        return jsonify({"error": "An error occurred while processing the webhook"}), 500
+
+
+@app.route("/payments/total", methods=["GET"])
+def get_total_paid_users():
+    try:
+        total_paid_users = User.query.filter_by(has_paid=True).count()
+        return jsonify({"total_paid_users": total_paid_users}), 200
+    except Exception as e:
+        print("Error getting total paid users:", str(e))
+        return jsonify({"error": "An error occurred while getting total paid users"}), 500
+
+
+@app.route("/payments/total/interns", methods=["GET"])
+def get_total_paid_interns():
+    try:
+        total_paid_interns = User.query.filter_by(
+            has_paid=True, role_id=5).count()
+        return jsonify({"total_paid_interns": total_paid_interns}), 200
+    except Exception as e:
+        print("Error getting total paid interns:", str(e))
+        return jsonify({"error": "An error occurred while getting total paid interns"}), 500
+
+
+@app.route("/payments/total/mobilizers", methods=["GET"])
+def get_total_paid_mobilizers():
+    try:
+        total_paid_mobilizers = User.query.filter_by(
+            has_paid=True, role_id=6).count()
+        return jsonify({"total_paid_mobilizers": total_paid_mobilizers}), 200
+    except Exception as e:
+        print("Error getting total paid mobilizers:", str(e))
+        return jsonify({"error": "An error occurred while getting total paid mobilizers"}), 500
 
 
 if __name__ == "__main__":
