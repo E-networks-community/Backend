@@ -1327,6 +1327,76 @@ def create_admin():
         return jsonify(message="Failed to create Admin"), 500
 
 
+# @app.route("/webhook/payment", methods=["POST"])
+# def handle_payment_webhook():
+#     try:
+#         data = request.json
+
+#         # Extract relevant fields from the webhook payload
+#         status = data.get("status")
+#         transaction_reference = data.get("merchant_ref")
+#         payment_reference = data.get("msft_ref")
+#         # Add more fields as needed
+
+#         if not status or not transaction_reference or not payment_reference:
+#             return jsonify({"error": "Missing required parameters"}), 400
+
+#         # Retrieve the user from the database based on the payment_reference
+#         user = User.query.filter_by(id=transaction_reference).first()
+
+#         if not user:
+#             return jsonify({"error": "User not found"}), 404
+
+#         # Check if the payment has already been processed for this user and transaction reference
+#         existing_payment = SuccessfulPayment.query.filter_by(
+#             user_id=user.id
+#         ).first()
+
+#         if existing_payment:
+#             # Payment has already been processed, do not update earnings again
+#             return jsonify({"message": "Payment already processed"}), 200
+
+#         # Check if the payment was successful
+#         if status.lower() == "success":
+#             if not user.has_paid:
+#                 # Update user's payment status and perform earnings calculations
+#                 user.has_paid = True
+
+#                 if user.referred_me and user.referred_me.role and user.referred_me.role.role_name == "Mobilizer":
+#                     referred_by_mobilizer = user.referred_me
+#                     referred_by_mobilizer.earnings += 100
+#                     db.session.add(referred_by_mobilizer)
+
+#                 if user.state:
+#                     executives = User.query.filter_by(state=user.state).all()
+#                     for executive in executives:
+#                         if executive.role and executive.role.role_name == "Executives":
+#                             executive.earnings += 50
+#                             db.session.add(executive)
+
+#                 # Create a new entry in the SuccessfulPayment table
+#                 successful_payment = SuccessfulPayment(
+#                     user_id=user.id,
+#                     transaction_reference=transaction_reference,
+#                     payment_amount=1500,  # Set the payment amount
+
+#                 )
+#                 db.session.add(successful_payment)
+
+#                 db.session.commit()
+
+#                 # Send receipt to user
+#                 send_reciept_to_user(user.email, user.first_name)
+
+#             return jsonify({"message": "Payment processed successfully"}), 200
+#         else:
+#             return jsonify({"message": "Payment not successful"}), 200
+
+#     except Exception as e:
+#         print("Error processing payment webhook:", str(e))
+#         return jsonify({"error": "An error occurred while processing the webhook"}), 500
+
+
 @app.route("/webhook/payment", methods=["POST"])
 def handle_payment_webhook():
     try:
@@ -1336,7 +1406,7 @@ def handle_payment_webhook():
         status = data.get("status")
         transaction_reference = data.get("merchant_ref")
         payment_reference = data.get("msft_ref")
-        # Add more fields as needed
+        settled_amount = float(data.get("settled_amount"))
 
         if not status or not transaction_reference or not payment_reference:
             return jsonify({"error": "Missing required parameters"}), 400
@@ -1356,8 +1426,11 @@ def handle_payment_webhook():
             # Payment has already been processed, do not update earnings again
             return jsonify({"message": "Payment already processed"}), 200
 
-        # Check if the payment was successful
+        # Check if the payment was successful and settled amount is sufficient
         if status.lower() == "success":
+            if settled_amount < 1500:
+                return jsonify({"message": "Payment successful but settled amount is insufficient"}), 200
+
             if not user.has_paid:
                 # Update user's payment status and perform earnings calculations
                 user.has_paid = True
@@ -1378,8 +1451,7 @@ def handle_payment_webhook():
                 successful_payment = SuccessfulPayment(
                     user_id=user.id,
                     transaction_reference=transaction_reference,
-                    payment_amount=1500,  # Set the payment amount
-
+                    payment_amount=settled_amount,  # Use settled_amount as payment amount
                 )
                 db.session.add(successful_payment)
 
@@ -1395,6 +1467,7 @@ def handle_payment_webhook():
     except Exception as e:
         print("Error processing payment webhook:", str(e))
         return jsonify({"error": "An error occurred while processing the webhook"}), 500
+
 
 
 @app.route('/edit/<user_id>', methods=['PUT'])
