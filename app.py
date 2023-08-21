@@ -559,9 +559,6 @@ def register_user_with_referral(referral_code):
             bank_name=bankName
         )
 
-        db.session.add(new_user)
-        db.session.commit()
-
         if profile_image and allowed_file(profile_image.filename):
             # Upload the profile image to Cloudinary
             profile_image_url = upload_image_to_cloudinary(profile_image)
@@ -571,6 +568,8 @@ def register_user_with_referral(referral_code):
         new_user.referral_link = new_user.generate_referral_link()
 
         # Commit the user object with the referral link and profile image (if any)
+        db.session.add(new_user)
+        db.session.commit()
         db.session.commit()
 
         email_verification_otp = generate_otp()
@@ -1467,7 +1466,6 @@ def handle_payment_webhook():
     except Exception as e:
         print("Error processing payment webhook:", str(e))
         return jsonify({"error": "An error occurred while processing the webhook"}), 500
-
 
 
 @app.route('/edit/<user_id>', methods=['PUT'])
