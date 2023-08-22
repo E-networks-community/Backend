@@ -1502,6 +1502,10 @@ def edit_user_with_id(user_id):
             user.account = updated_data['account']
         if 'role_id' in updated_data:
             user.role_id = updated_data['role_id']
+        if 'password' in updated_data:
+            new_password = updated_data['password']
+            hashed_password = bcrypt_sha256.hash(new_password)
+            user.password = hashed_password
 
         db.session.commit()
 
