@@ -1702,8 +1702,8 @@ def update_payment_status():
 def process_payment(transaction_ref):
     user = User.query.filter_by(id=transaction_ref).first()
 
-    # if user.has_paid:
-    #     return jsonify(message="User has paid already")
+    if user.has_paid:
+        return jsonify(message="User has paid already")
 
     try:
         # Prepare data to send to the Marasoft API
