@@ -73,6 +73,13 @@ def add_cors_headers(response):
 ####################################################################
 ####################################################################
 ####################################################################
+####################################################################
+MARASOFT_API_BASE = "https://api.marasoftpay.live"
+# Replace with your actual API key
+MARASOFT_API_KEY = os.environ.get("MARASOFT_API_KEY")
+####################################################################
+####################################################################
+####################################################################
 ######### Function to Handle the save profile Image Upload #########
 UPLOAD_FOLDER = os.path.join(os.getcwd(), 'profile_images')
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
@@ -759,6 +766,8 @@ def get_all_users():
                     'first_name': user.first_name,
                     'last_name': user.last_name,
                     'email': user.email,
+                    'has_paid': user.has_paid,
+                    'Reffered_me': user.referred_by_id,
                     'role': user.role.role_name,  # Access role_name only if user.role is not None
                 }
             else:
@@ -848,7 +857,7 @@ def initialize_payment():
                 "phone_number": user.phone_number,
                 "amount": 1500,
                 "currency": "NGN",
-                "user_bear_charge": "no",
+                "user_bear_charge": "yes",
                 "preferred_payment_option": "card",
                 "description": "payment"
             }
@@ -1468,12 +1477,59 @@ def handle_payment_webhook():
         return jsonify({"error": "An error occurred while processing the webhook"}), 500
 
 
+# @app.route('/edit/<user_id>', methods=['PUT'])
+# @jwt_required()  # This ensures that only authenticated users (with a valid token) can access this route
+# @require_role(['Admin', 'Super Admin'])
+# def edit_user_with_id(user_id):
+#     try:
+#         current_user_id = get_jwt_identity()  # Get the ID of the authenticated user
+#         if not current_user_id:
+#             return jsonify({'message': 'Invalid user'}), 401
+
+#         user = User.query.get(user_id)
+#         if not user:
+#             return jsonify({'message': 'User not found'}), 404
+
+#         # Update user data based on the request JSON
+#         updated_data = request.get_json()
+#         if 'first_name' in updated_data:
+#             user.first_name = updated_data['first_name']
+#         if 'last_name' in updated_data:
+#             user.last_name = updated_data['last_name']
+#         if 'email' in updated_data:
+#             user.email = updated_data['email']
+#         # Update other fields as needed
+#         if 'has_paid' in updated_data:
+#             user.has_paid = updated_data['has_paid']
+#         if 'earnings' in updated_data:
+#             user.earnings = updated_data['earnings']
+#         if 'is_email_verified' in updated_data:
+#             user.is_email_verified = updated_data['is_email_verified']
+#         if 'referrer' in updated_data:
+#             user.referred_by_id = updated_data['referrer']
+#         if 'account' in updated_data:
+#             user.account = updated_data['account']
+#         if 'role_id' in updated_data:
+#             user.role_id = updated_data['role_id']
+#         if 'password' in updated_data:
+#             new_password = updated_data['password']
+#             hashed_password = bcrypt_sha256.hash(new_password)
+#             user.password = hashed_password
+
+#         db.session.commit()
+
+#         return jsonify({'message': 'User data updated successfully'}), 200
+
+#     except Exception as e:
+#         print(e)
+#         return jsonify({'message': 'An error occurred'}), 500
+
 @app.route('/edit/<user_id>', methods=['PUT'])
-@jwt_required()  # This ensures that only authenticated users (with a valid token) can access this route
+@jwt_required()
 @require_role(['Admin', 'Super Admin'])
 def edit_user_with_id(user_id):
     try:
-        current_user_id = get_jwt_identity()  # Get the ID of the authenticated user
+        current_user_id = get_jwt_identity()
         if not current_user_id:
             return jsonify({'message': 'Invalid user'}), 401
 
@@ -1489,9 +1545,40 @@ def edit_user_with_id(user_id):
             user.last_name = updated_data['last_name']
         if 'email' in updated_data:
             user.email = updated_data['email']
+        if 'phone_number' in updated_data:
+            user.phone_number = updated_data['phone_number']
         # Update other fields as needed
+        # if 'has_paid' in updated_data:
+        #     # Check if the has_paid status is being updated to True
+        #     if updated_data['has_paid'] and not user.has_paid:
+        #         user.has_paid = True
+
+        #         # Check if the user has a referrer and update their earnings
+        #         if user.referred_by_id:
+        #             referrer = User.query.get(user.referred_by_id)
+        #             if referrer and referrer.role and referrer.role.role_name == "Mobilizer":
+        #                 referrer.earnings += 100
+        #                 db.session.add(referrer)
+
         if 'has_paid' in updated_data:
-            user.has_paid = updated_data['has_paid']
+            # Check if the user has already paid
+            if user.has_paid:
+                return jsonify({'message': 'User has already paid'}), 400
+
+            # If the payment status is being updated to True
+            if updated_data['has_paid'] and not user.has_paid:
+                user.has_paid = True
+
+                # Check if the user has a referrer and update their earnings
+                if user.referred_by_id:
+                    referrer = User.query.get(user.referred_by_id)
+                    if referrer and referrer.role and referrer.role.role_name == "Mobilizer":
+                        referrer.earnings += 100
+                        db.session.add(referrer)
+
+        if 'has_not_paid' in updated_data:
+            user.has_paid = False
+
         if 'earnings' in updated_data:
             user.earnings = updated_data['earnings']
         if 'is_email_verified' in updated_data:
@@ -1509,10 +1596,665 @@ def edit_user_with_id(user_id):
 
         db.session.commit()
 
-        return jsonify({'message': 'User data updated successfully'}), 200
+        return jsonify({'message': f'User data updated successfully for {user.email}'}), 200
 
     except Exception as e:
         print(e)
+        return jsonify({'message': 'An error occurred'}), 500
+
+
+@app.route('/update-payment-status', methods=['GET'])
+@jwt_required()
+@require_role(['Admin', 'Super Admin'])
+def update_payment_status():
+    try:
+        # Fetch users with has_paid status set to False
+        unpaid_users = User.query.filter_by(has_paid=False).all()
+
+        print(f"""
+                    ################################################
+                    ################################################
+                    ################################################
+                    ################################################
+                            Starting the update of payment
+                    ################################################
+                    ################################################
+                    ################################################
+                    ################################################
+                    ################################################
+                    ################################################
+                    """)
+        # Loop through each unpaid user
+        for user in unpaid_users:
+            # Prepare data to send to the API
+            data = {
+                # Replace with your actual encryption key
+                'enc_key': MARASOFT_API_KEY,
+                'transaction_ref': user.id  # Use user ID as the transaction reference
+            }
+
+            # Send request to the API
+            response = requests.post(
+                'https://api.marasoftpay.live/checktransaction', data=data)
+
+            # Parse the response JSON
+            response_data = response.json()
+
+            # Print user ID for tracking
+            print(f"Processing user with ID: {user.id}")
+
+            # Check if the user has already paid
+            if user.has_paid:
+                print(f"User already paid: {user.id}")
+                continue  # Skip processing this user
+
+            # Check if the transaction was successful and update user's payment status
+            if response_data.get('status') == True and response_data.get('transaction_status', '') == 'Successful':
+                user.has_paid = True
+                db.session.add(user)
+                db.session.commit()
+
+                # Check if the user has a referrer and update their earnings
+                if user.referred_by_id:
+                    referrer = User.query.get(user.referred_by_id)
+                    if referrer and referrer.role and referrer.role.role_name == "Mobilizer":
+                        referrer.earnings += 100
+                        db.session.add(referrer)
+                        db.session.commit()
+
+                # Save successful payment
+                successful_payment = SuccessfulPayment(
+                    user_id=user.id,
+                    transaction_reference=response_data.get('merchant_ref'),
+                    payment_amount=response_data.get(
+                        'transaction_amount')  # Adjust this accordingly
+                )
+                db.session.add(successful_payment)
+                db.session.commit()
+
+                # Update earnings for executives in the user's state
+                if user.state:
+                    executives = User.query.filter_by(state=user.state).all()
+                    for executive in executives:
+                        if executive.role and executive.role.role_name == 'Executives':
+                            executive.earnings += 50
+                            db.session.add(executive)
+                            db.session.commit()
+
+                if user.referred_by_id:
+                    print(
+                        f"User payment successful: {user.email}, updated paymend for the executive of {executive.state}. Earnings distributed to the referrer {referrer.email}")
+                else:
+                    print(
+                        f"User payment successful: {user.email}, updated paymend for the executive of {executive.state}.")
+
+            else:
+                print(f"User payment failed: {user.id}")
+
+        return jsonify({'message': 'Payment statuses updated successfully'}), 200
+
+    except Exception as e:
+        print(e)
+        return jsonify({'message': 'An error occurred'}), 500
+
+
+@app.route('/process-payment/<transaction_ref>', methods=['GET'])
+def process_payment(transaction_ref):
+    user = User.query.filter_by(id=transaction_ref).first()
+
+    # if user.has_paid:
+    #     return jsonify(message="User has paid already")
+
+    try:
+        # Prepare data to send to the Marasoft API
+        data = {
+            'enc_key': MARASOFT_API_KEY,
+            'transaction_ref': transaction_ref
+        }
+
+        # Send request to the Marasoft API as form data
+        response = requests.post(
+            'https://api.marasoftpay.live/checktransaction', data=data)
+
+        # Print the JSON response received from Marasoft API
+        print("Marasoft API Response:", response.text)
+        print()
+        print()
+
+        # Parse and return the response
+        response_data = response.json()
+
+        if 'status' in response_data and not response_data['status']:
+            error_message = response_data['error']
+            return jsonify(message=error_message)
+
+        if isinstance(response_data, list):
+            for data_entry in response_data:
+                if not data_entry['status']:
+                    return jsonify(message="Failed transaction")
+                process_data_entry(data_entry, user)
+        elif isinstance(response_data, dict):
+            if not response_data['status']:
+                error_message = response_data['error']
+                return jsonify(message=error_message)
+            process_data_entry(response_data, user)
+        else:
+            return jsonify(message="Invalid API response format"), 500
+
+        return jsonify(message="Successful payment and earnings distribution done"), 200
+
+    except ValueError:
+        return jsonify({'message': 'Invalid API response'}), 500
+    except Exception as e:
+        print(e)
+        return jsonify({'message': 'An error occurred'}), 500
+
+
+@app.route("/transfer", methods=["POST"])
+@jwt_required()
+def initialize_tranfer_payment():
+    try:
+        # Retrieve the user from the database
+        user_id = get_jwt_identity()
+        user = User.query.filter_by(id=user_id).first()
+
+        # Check if the user exists
+        if not user:
+            return jsonify({"error": "User not found"}), 404
+
+        # Prepare the form data payload
+        payload = {
+            "enc_key": MARASOFT_API_KEY,
+            "amount": 200,  # Update this with the actual amount
+            "transaction_ref": user.id,
+        }
+
+        # Make a payment request to Marasoft API to initiate payment
+        response = requests.post(
+            "https://api.marasoftpay.live/generate_dynamic_account/",
+            data=payload,
+        )
+
+        data = response.json()
+        print(f"""
+              #######################
+              #######################
+                      Marasoft:
+                        {data}
+              #######################
+              #######################
+                 User Id {user.id}
+              #######################
+              #######################
+                 User Email {user.email}
+              #######################
+                        
+              """)
+
+        if response.status_code == 200 and data["status"] == True:
+            return jsonify({
+                "account_number": data["account_number"],
+                "account_name": data["account_name"],
+                "bank_name": data["bank_name"],
+            })
+        else:
+            error_message = data.get("error") if data.get(
+                "error") else "Payment initiation failed"
+            print("Payment initiation failed:", error_message)
+            return jsonify({"error": error_message}), 500
+
+    except Exception as e:
+        print("Payment initiation failed:", str(e))
+        return jsonify({"error": "Payment initiation failed"}), 500
+
+
+# @app.route('/check-user-payment', methods=['GET'])
+# @jwt_required()
+# def process_user_payment():
+#     user_id = get_jwt_identity()
+#     user = User.query.filter_by(id=user_id).first()
+
+#     if user.has_paid:
+#         return jsonify(message="User has paid already")
+
+#     try:
+#         # Prepare data to send to the Marasoft API
+#         data = {
+#             'enc_key': MARASOFT_API_KEY,
+#             'transaction_ref': user.id
+#         }
+
+#         # Send request to the Marasoft API as form data
+#         response = requests.post(
+#             'https://api.marasoftpay.live/checktransaction', data=data)
+
+#         # Print the JSON response received from Marasoft API
+#         print("Marasoft API Response:", response.text)
+#         print()
+#         print()
+
+#         # Parse and return the response
+#         # ...
+#         try:
+#             response_data = response.json()
+
+#             if 'status' in response_data and not response_data['status']:
+#                 error_message = response_data['error']
+#                 return jsonify(message=error_message)
+
+#             for data_entry in response_data:
+#                 if not data_entry['status']:
+#                     return jsonify(message="Failed transaction")
+#                 if data_entry['status'] and data_entry['transaction_status'] == "Successful":
+#                     user.has_paid = True
+#                     db.session.add(user)
+#                     db.session.commit()
+
+#                     # Check if the user has a referrer and update their earnings
+#                     if user.referred_by_id:
+#                         referrer = User.query.get(user.referred_by_id)
+#                         if referrer and referrer.role and referrer.role.role_name == "Mobilizer":
+#                             referrer.earnings += 100
+#                             db.session.add(referrer)
+#                             db.session.commit()
+
+#                     # Save successful payment
+#                     successful_payment = SuccessfulPayment(
+#                         user_id=user.id,
+#                         transaction_reference=data_entry.get('merchant_ref'),
+#                         payment_amount=data_entry.get(
+#                             'transaction_amount')  # Adjust this accordingly
+#                     )
+#                     db.session.add(successful_payment)
+#                     db.session.commit()
+
+#                     # Update earnings for executives in the user's state
+#                     if user.state:
+#                         users_state = user.state
+#                         executives = User.query.filter(
+#                             User.role_id == 3, User.state == users_state).first()
+#                         for executive in executives:
+#                             executive.earnings += 50
+#                             db.session.add(executive)
+#                         db.session.commit()
+
+#             return jsonify(message="Successful payment and earnings distribution done"), 200
+#         except ValueError:
+#             return jsonify({'message': 'Invalid API response'}), 500
+#         # ...
+
+#     except Exception as e:
+#         print(e)
+#         return jsonify({'message': 'An error occurred'}), 500
+
+@app.route('/check-user-payment', methods=['GET'])
+@jwt_required()
+def process_user_payment():
+    user_id = get_jwt_identity()
+    user = User.query.filter_by(id=user_id).first()
+
+    if user.has_paid:
+        return jsonify(message="User has paid already")
+
+    try:
+        # Prepare data to send to the Marasoft API
+        data = {
+            'enc_key': MARASOFT_API_KEY,
+            'transaction_ref': user.id
+        }
+
+        # Send request to the Marasoft API as form data
+        response = requests.post(
+            'https://api.marasoftpay.live/checktransaction', data=data)
+
+        # Print the JSON response received from Marasoft API
+        print("Marasoft API Response:", response.text)
+        print()
+        print()
+
+        response_data = response.json()
+
+        if isinstance(response_data, list):
+            for data_entry in response_data:
+                print(f"""
+                      #####################
+                      #####################
+                      #####################
+                         {data_entry}
+                      #####################
+                      #####################
+                      #####################
+                      """)
+                if data_entry['transaction_status'] == "Successful":
+                    process_data_entry(data_entry, user)
+                else:
+                    continue
+        elif isinstance(response_data, dict):
+            if response_data['status'] == True and response_data['transaction_status'] == "Successful":
+                process_data_entry(response_data, user)
+            else:
+                return jsonify(message="Failed transaction 2"), 500
+        else:
+            return jsonify(message="Invalid API response format"), 500
+
+        return jsonify(message="Successful payment and earnings distribution done"), 200
+
+    except ValueError:
+        return jsonify({'message': 'Invalid API response'}), 500
+    except Exception as e:
+        print(e)
+        return jsonify({'message': 'An error occurred'}), 500
+
+
+def process_data_entry(data_entry, user):
+    if data_entry['status'] and data_entry['transaction_status'] == "Successful":
+        user.has_paid = True
+        db.session.add(user)
+        db.session.commit()
+
+        # Check if the user has a referrer and update their earnings
+        if user.referred_by_id:
+            referrer = User.query.get(user.referred_by_id)
+            if referrer and referrer.role and referrer.role.role_name == "Mobilizer":
+                referrer.earnings += 100
+                db.session.add(referrer)
+                db.session.commit()
+
+        # Save successful payment
+        successful_payment = SuccessfulPayment(
+            user_id=user.id,
+            transaction_reference=data_entry.get('merchant_ref'),
+            payment_amount=data_entry.get(
+                'transaction_amount')  # Adjust this accordingly
+        )
+        db.session.add(successful_payment)
+        db.session.commit()
+
+        # Update earnings for executives in the user's state
+        if user.state:
+            users_state = user.state
+            executives = User.query.filter(
+                User.role_id == 3, User.state == users_state).all()
+            for executive in executives:
+                executive.earnings += 50
+                db.session.add(executive)
+            db.session.commit()
+
+
+@app.route('/delete-user/<user_id>', methods=['DELETE'])
+@jwt_required()
+@require_role(['Admin', 'Super Admin'])
+def delete_user(user_id):
+    user = User.query.filter_by(id=user_id).first()
+    if user:
+        db.session.delete(user)
+        db.session.commit()
+        return jsonify(message=f'User {user.email} deleted successfully')
+    else:
+        return jsonify(message='User not found'), 404
+
+
+@app.route('/delete-users', methods=['DELETE'])
+@jwt_required()
+@require_role(['Admin', 'Super Admin'])
+def delete_users():
+    # JSON payload with user IDs to delete
+    user_ids = request.json.get('user_ids')
+    if not user_ids or not isinstance(user_ids, list):
+        return jsonify(message='Invalid user IDs provided'), 400
+
+    deleted_users = []
+    for user_id in user_ids:
+        user = User.query.filter_by(id=user_id).first()
+        if user:
+            # Delete related data first
+            # Delete records in the OTP table
+            OTP.query.filter_by(user_id=user_id).delete()
+
+            # Delete records in the SuccessfulPayment table
+            SuccessfulPayment.query.filter_by(user_id=user_id).delete()
+
+            # Delete the user
+            db.session.delete(user)
+            deleted_users.append(user_id)
+
+    db.session.commit()
+    return jsonify(message='Users and related data deleted successfully', deleted_user_ids=deleted_users)
+
+
+@app.route("/payments/total", methods=["GET"])
+@jwt_required()
+@require_role(['Admin', 'Super Admin'])
+def get_total_paid_users():
+    try:
+        total_paid_users = User.query.filter_by(has_paid=True).count()
+        return jsonify({"total_paid_users": total_paid_users}), 200
+    except Exception as e:
+        print("Error getting total paid users:", str(e))
+        return jsonify({"error": "An error occurred while getting total paid users"}), 500
+
+
+@app.route("/payments/total/interns", methods=["GET"])
+@jwt_required()
+@require_role(['Admin', 'Super Admin'])
+def get_total_paid_interns():
+    try:
+        total_paid_interns = User.query.filter_by(
+            has_paid=True, role_id=5).count()
+        return jsonify({"total_paid_interns": total_paid_interns}), 200
+    except Exception as e:
+        print("Error getting total paid interns:", str(e))
+        return jsonify({"error": "An error occurred while getting total paid interns"}), 500
+
+
+@app.route("/payments/total/mobilizers", methods=["GET"])
+@jwt_required()
+@require_role(['Admin', 'Super Admin'])
+def get_total_paid_mobilizers():
+    try:
+        total_paid_mobilizers = User.query.filter_by(
+            has_paid=True, role_id=4).count()
+        return jsonify({"total_paid_mobilizers": total_paid_mobilizers}), 200
+    except Exception as e:
+        print("Error getting total paid mobilizers:", str(e))
+        return jsonify({"error": "An error occurred while getting total paid mobilizers"}), 500
+
+
+@app.route('/process-unpaid-user-payments', methods=['GET'])
+@jwt_required()
+@require_role(['Admin', 'Super Admin'])
+def process_unpaid_user_payments():
+    try:
+        unpaid_users = User.query.filter_by(has_paid=False).all()
+
+        if not unpaid_users:
+            return jsonify(message="No unpaid users found"), 200
+
+        print("Processing unpaid users...")
+
+        for user in unpaid_users:
+            try:
+                # Prepare data to send to the Marasoft API
+                data = {
+                    'enc_key': MARASOFT_API_KEY,
+                    'transaction_ref': user.id
+                }
+
+                # Send request to the Marasoft API as form data
+                response = requests.post(
+                    'https://api.marasoftpay.live/checktransaction', data=data)
+
+                # Print the JSON response received from Marasoft API
+                print("Marasoft API Response:", response.text)
+
+                response_data = response.json()
+
+                if isinstance(response_data, list):
+                    for data_entry in response_data:
+                        process_marasoft_response(data_entry, user)
+                elif isinstance(response_data, dict):
+                    process_marasoft_response(response_data, user)
+
+            except Exception as e:
+                print(f"An error occurred for user {user.id}: {e}")
+
+        return jsonify(message="Unpaid user payments processed"), 200
+
+    except Exception as e:
+        print(e)
+        return jsonify(message="An error occurred"), 500
+
+
+def process_marasoft_response(response_data, user):
+    try:
+        data_entry = response_data  # Since it's a dictionary response
+
+        if data_entry['status'] and data_entry['transaction_status'] == "Successful":
+            settled_amount = float(data_entry.get('settled_amount', 0))
+
+            if settled_amount >= 1400:
+                user.has_paid = True
+                db.session.add(user)
+
+                if user.referred_by_id:
+                    referrer = User.query.get(user.referred_by_id)
+                    if referrer and referrer.role and referrer.role.role_name == "Mobilizer":
+                        referrer.earnings += 100
+                        db.session.add(referrer)
+
+                if user.state:
+                    executives = User.query.filter(
+                        User.role_id == 3, User.state == user.state).all()
+                    for executive in executives:
+                        executive.earnings += 50
+                        db.session.add(executive)
+
+                db.session.commit()
+
+                print(f"User payment successful: {user.email}")
+            else:
+                print(f"User payment amount not sufficient: {user.email}")
+
+        elif data_entry['transaction_status'] == "PENDING":
+            print(f"User payment pending: {user.email}")
+        else:
+            print(f"User payment failed: {user.email}")
+
+    except Exception as e:
+        print(f"An error occurred processing Marasoft response: {e}")
+        print(
+            f"Unable to update payment for email: {user.email}, name: [first_Name:{user.first_name}, Last_Name: {user.last_name}] due to invalid Transaction")
+        print()
+        print()
+
+
+MARASOFT_API_BASE = "https://api.marasoftpay.live"
+# Replace with your actual API key
+MARASOFT_API_KEY = os.environ.get("MARASOFT_API_KEY")
+
+
+@app.route("/check", methods=['GET'])
+def check():
+    return jsonify(message=MARASOFT_API_KEY)
+
+
+selected_bank_code = None  # To store the selected bank code for the user
+
+
+@app.route('/get-banks', methods=['GET'])
+def get_banks():
+    try:
+        response = requests.get(
+            f'{MARASOFT_API_BASE}/getbanks', params={'enc_key': MARASOFT_API_KEY})
+        data = response.json()
+        if data['status'] == 'success':
+            banks = data['data']['banks']
+            return jsonify({'message': 'Banks fetched successfully', 'banks': banks}), 200
+        else:
+            return jsonify({'message': 'Failed to fetch banks'}), 500
+    except Exception as e:
+        return jsonify({'message': 'An error occurred'}), 500
+
+
+@app.route('/select-bank', methods=['POST'])
+def select_bank():
+    global selected_bank_code
+    try:
+        selected_bank_code = request.form.get('bank_code')
+        return jsonify({'message': 'Bank selected successfully'}), 200
+    except Exception as e:
+        return jsonify({'message': 'An error occurred'}), 500
+
+
+@app.route('/verify-account', methods=['POST'])
+def verify_account():
+    try:
+        account_number = request.form.get('account_number')
+        bank_code = request.form.get('bank_code')
+
+        if bank_code is None:
+            return jsonify({'message': 'No bank selected'}), 400
+
+        resolvebank_data = {
+            'enc_key': MARASOFT_API_KEY,
+            'bank_code': bank_code,
+            'account_number': account_number
+        }
+        resolvebank_response = requests.post(
+            f'{MARASOFT_API_BASE}/resolvebank', data=resolvebank_data)
+        resolvebank_data = resolvebank_response.json()
+
+        if resolvebank_data['status'] == True:
+            return jsonify({'message': 'Account is valid', 'account_name': resolvebank_data['data']['account_name']}), 200
+        else:
+            return jsonify({'message': 'Invalid bank account'}), 400
+    except Exception as e:
+        return jsonify({'message': 'An error occurred'}), 500
+
+
+@app.route('/make-transfer', methods=['POST'])
+@jwt_required()
+def make_transfer():
+    try:
+        user_id = get_jwt_identity()
+        user = User.query.filter_by(id=user_id).first()
+
+        bank_code = request.form.get('bank_code')
+        account_number = request.form.get('account_number')
+        amount = request.form.get('amount')
+        description = request.form.get('description')
+
+        print(bank_code)
+        print(account_number)
+        print(amount)
+        print(description)
+
+        # Prepare transfer data
+        transfer_data = {
+            "enc_key": MARASOFT_API_KEY,
+            "bank_code": bank_code,
+            "account_number": account_number,
+            "amount": amount,
+            "description": description,
+            "transactionRef": user.id,
+            "currency": "NGN"
+        }
+
+        # Make the transfer
+        transfer_response = requests.post(
+            f'{MARASOFT_API_BASE}/createtransfer', data=transfer_data)
+        transfer_data = transfer_response.json()
+
+        user_amount_withdrawn = float(amount)
+
+        if transfer_data.get('status') == "success":
+            user.earnings -= user_amount_withdrawn
+            db.session.commit()
+            return jsonify({'message': 'Transfer successful'}), 200
+        else:
+            print(transfer_data)
+            return jsonify({"message": f"{transfer_data}"}), 500
+    except Exception as e:
         return jsonify({'message': 'An error occurred'}), 500
 
 

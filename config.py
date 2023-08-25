@@ -15,6 +15,11 @@ class ApplicationConfig:
     SQLALCHEMY_TRACK_MODIFICATIONS = os.environ.get(
         "SQLALCHEMY_TRACK_MODIFICATIONS")
     SQLALCHEMY_ECHO = os.environ.get("SQLALCHEMY_ECHO")
+    # Example configuration in your Flask app configuration
+    SQLALCHEMY_POOL_SIZE = 20
+    SQLALCHEMY_POOL_TIMEOUT = 3000
+    SQLALCHEMY_POOL_RECYCLE = 36000
+
     # SQLALCHEMY_DATABASE_URI = r"sqlite:///./db.sqlite"
     username = os.environ.get("USERNAME")
     password = os.environ.get("PASSWORD")
@@ -30,6 +35,7 @@ class ApplicationConfig:
     # SESSION_REDIS = redis_client
     SESSION_PERMANENT = os.environ.get("SESSION_PERMANENT")
     SESSION_USE_SIGNER = os.environ.get("SESSION_USE_SIGNER")
+    PERMANENT_SESSION_LIFETIME = 86400
 
     MAIL_SERVER = 'smtp.elasticemail.com'
     MAIL_PORT = 2525
@@ -39,7 +45,7 @@ class ApplicationConfig:
 
     DATABASE_INITIALIZED = False
 
-    JWT_ACCESS_TOKEN_EXPIRES = 10800
+    JWT_ACCESS_TOKEN_EXPIRES = 21600
 
 
 def generate_verification_token(user_id, txn_ref):
