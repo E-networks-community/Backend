@@ -59,8 +59,8 @@ db.init_app(app)
 @app.after_request
 def add_cors_headers(response):
     # Replace with your frontend domain
-    # frontend_domain = 'http://localhost:3000'
-    frontend_domain = 'https://www.enetworksagencybanking.com.ng'
+    frontend_domain = 'http://localhost:3000'
+    # frontend_domain = 'https://www.enetworksagencybanking.com.ng'
     response.headers['Access-Control-Allow-Origin'] = frontend_domain
     response.headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS, PATCH'
     response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
@@ -1765,8 +1765,9 @@ def initialize_tranfer_payment():
         # Prepare the form data payload
         payload = {
             "enc_key": "MSFT_Enc_3P7BO5B5ZIE5RXL543IJV0SBXSDO7B3",
-            "amount": 200,  # Update this with the actual amount
+            "amount": 1500,  # Update this with the actual amount
             "transaction_ref": user.id,
+            "user_bear_charge": "yes",
         }
 
         # Make a payment request to Marasoft API to initiate payment
