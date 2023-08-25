@@ -1629,7 +1629,7 @@ def update_payment_status():
             # Prepare data to send to the API
             data = {
                 # Replace with your actual encryption key
-                'enc_key': MARASOFT_API_KEY,
+                'enc_key': "MSFT_Enc_3P7BO5B5ZIE5RXL543IJV0SBXSDO7B3",
                 'transaction_ref': user.id  # Use user ID as the transaction reference
             }
 
@@ -1708,7 +1708,7 @@ def process_payment(transaction_ref):
     try:
         # Prepare data to send to the Marasoft API
         data = {
-            'enc_key': MARASOFT_API_KEY,
+            'enc_key': "MSFT_Enc_3P7BO5B5ZIE5RXL543IJV0SBXSDO7B3",
             'transaction_ref': transaction_ref
         }
 
@@ -1764,7 +1764,7 @@ def initialize_tranfer_payment():
 
         # Prepare the form data payload
         payload = {
-            "enc_key": MARASOFT_API_KEY,
+            "enc_key": "MSFT_Enc_3P7BO5B5ZIE5RXL543IJV0SBXSDO7B3",
             "amount": 200,  # Update this with the actual amount
             "transaction_ref": user.id,
         }
@@ -1820,7 +1820,7 @@ def initialize_tranfer_payment():
 #     try:
 #         # Prepare data to send to the Marasoft API
 #         data = {
-#             'enc_key': MARASOFT_API_KEY,
+#             'enc_key': "MSFT_Enc_3P7BO5B5ZIE5RXL543IJV0SBXSDO7B3",
 #             'transaction_ref': user.id
 #         }
 
@@ -1899,7 +1899,7 @@ def process_user_payment():
     try:
         # Prepare data to send to the Marasoft API
         data = {
-            'enc_key': MARASOFT_API_KEY,
+            'enc_key': "MSFT_Enc_3P7BO5B5ZIE5RXL543IJV0SBXSDO7B3",
             'transaction_ref': user.id
         }
 
@@ -2076,7 +2076,7 @@ def process_unpaid_user_payments():
             try:
                 # Prepare data to send to the Marasoft API
                 data = {
-                    'enc_key': MARASOFT_API_KEY,
+                    'enc_key': "MSFT_Enc_3P7BO5B5ZIE5RXL543IJV0SBXSDO7B3",
                     'transaction_ref': user.id
                 }
 
@@ -2148,14 +2148,9 @@ def process_marasoft_response(response_data, user):
         print()
 
 
-MARASOFT_API_BASE = "https://api.marasoftpay.live"
-# Replace with your actual API key
-MARASOFT_API_KEY = os.environ.get("MARASOFT_API_KEY")
-
-
 @app.route("/check", methods=['GET'])
 def check():
-    return jsonify(message=MARASOFT_API_KEY)
+    return jsonify(message="MSFT_Enc_3P7BO5B5ZIE5RXL543IJV0SBXSDO7B3")
 
 
 selected_bank_code = None  # To store the selected bank code for the user
@@ -2165,7 +2160,7 @@ selected_bank_code = None  # To store the selected bank code for the user
 def get_banks():
     try:
         response = requests.get(
-            f'{MARASOFT_API_BASE}/getbanks', params={'enc_key': MARASOFT_API_KEY})
+            f'{MARASOFT_API_BASE}/getbanks', params={'enc_key': "MSFT_Enc_3P7BO5B5ZIE5RXL543IJV0SBXSDO7B3"})
         data = response.json()
         if data['status'] == 'success':
             banks = data['data']['banks']
@@ -2196,7 +2191,7 @@ def verify_account():
             return jsonify({'message': 'No bank selected'}), 400
 
         resolvebank_data = {
-            'enc_key': MARASOFT_API_KEY,
+            'enc_key': "MSFT_Enc_3P7BO5B5ZIE5RXL543IJV0SBXSDO7B3",
             'bank_code': bank_code,
             'account_number': account_number
         }
@@ -2231,7 +2226,7 @@ def make_transfer():
 
         # Prepare transfer data
         transfer_data = {
-            "enc_key": MARASOFT_API_KEY,
+            "enc_key": "MSFT_Enc_3P7BO5B5ZIE5RXL543IJV0SBXSDO7B3",
             "bank_code": bank_code,
             "account_number": account_number,
             "amount": amount,
