@@ -1926,12 +1926,14 @@ def process_user_payment():
                       #####################
                       #####################
                       """)
-                if data_entry['transaction_status'] == "Successful":
+                if data_entry['transaction_status'] == "Successful" and float(data_entry["amount_received"]) >= 1500:
+                    print(f""""The amount that is paid is {data_entry["amount_received"]}""")
                     process_data_entry(data_entry, user)
                 else:
                     continue
         elif isinstance(response_data, dict):
-            if response_data['status'] == True and response_data['transaction_status'] == "Successful":
+            if response_data['status'] == True and response_data['transaction_status'] == "Successful" and float(response_data["amount_received"]) >= 1500:
+                print(f"""The amount that is paid is {data_entry["amount_received"]}""")
                 process_data_entry(response_data, user)
             else:
                 return jsonify(message="Failed transaction 2"), 500
@@ -1948,7 +1950,8 @@ def process_user_payment():
 
 
 def process_data_entry(data_entry, user):
-    if data_entry['status'] and data_entry['transaction_status'] == "Successful":
+    if data_entry['transaction_status'] == "Successful" and float(data_entry["amount_received"]) >= 1500:
+        print(f"""The amount that is paid is {data_entry["amount_received"]}""")
         user.has_paid = True
         db.session.add(user)
         db.session.commit()
@@ -2048,6 +2051,17 @@ def get_total_paid_interns():
         return jsonify({"error": "An error occurred while getting total paid interns"}), 500
 
 
+@app.route("/total/mobilizers", methods=["GET"])
+@jwt_required()
+@require_role(['Admin', 'Super Admin'])
+def get_total_mobilizers():
+    try:
+        total_paid_mobilizers = User.query.filter_by(role_id=4).count()
+        return jsonify({"total_mobilizers": total_paid_mobilizers}), 200
+    except Exception as e:
+        print("Error getting total paid mobilizers:", str(e))
+        return jsonify({"error": "An error occurred while getting total paid mobilizers"}), 500
+
 @app.route("/payments/total/mobilizers", methods=["GET"])
 @jwt_required()
 @require_role(['Admin', 'Super Admin'])
@@ -2059,7 +2073,6 @@ def get_total_paid_mobilizers():
     except Exception as e:
         print("Error getting total paid mobilizers:", str(e))
         return jsonify({"error": "An error occurred while getting total paid mobilizers"}), 500
-
 
 @app.route('/process-unpaid-user-payments', methods=['GET'])
 @jwt_required()
@@ -2110,7 +2123,7 @@ def process_marasoft_response(response_data, user):
     try:
         data_entry = response_data  # Since it's a dictionary response
 
-        if data_entry['status'] and data_entry['transaction_status'] == "Successful":
+        if data_entry['transaction_status'] == "Successful" and float(data_entry["amount_received"]) >= 1500:
             settled_amount = float(data_entry.get('settled_amount', 0))
 
             if settled_amount >= 1400:
