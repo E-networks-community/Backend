@@ -436,7 +436,7 @@ def login():
     user = User.query.filter_by(email=email).first()
 
     if user is None or not bcrypt_sha256.verify(password, user.password):
-        return jsonify({"error": "Unauthorized"}), 401
+        return jsonify({"messsage": "Wrong password"}), 401
 
     # Create the access token with the user ID as the identity
     access_token = create_access_token(identity=str(user.id))
