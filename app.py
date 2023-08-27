@@ -59,8 +59,8 @@ db.init_app(app)
 @app.after_request
 def add_cors_headers(response):
     # Replace with your frontend domain
-    # frontend_domain = 'http://localhost:3000'
-    frontend_domain = 'https://www.enetworksagencybanking.com.ng'
+    frontend_domain = 'http://localhost:3000'
+    # frontend_domain = 'https://www.enetworksagencybanking.com.ng'
     response.headers['Access-Control-Allow-Origin'] = frontend_domain
     response.headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS, PATCH'
     response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
@@ -538,6 +538,10 @@ def register_user_with_referral(referral_code):
         if not referrer:
             return jsonify(message='Invalid referral code provided'), 400
 
+        # Ensure that the referrer exists and is not None
+        if referrer is None:
+            return jsonify(message='Invalid referral code provided'), 400
+
         # Get the appropriate role (e.g., "Intern") based on the role_name
         role_name = "Intern"  # Change this to the desired role name
         role = Role.query.filter_by(role_name=role_name).first()
@@ -577,7 +581,6 @@ def register_user_with_referral(referral_code):
         # Commit the user object with the referral link and profile image (if any)
         db.session.add(new_user)
         db.session.commit()
-        db.session.commit()
 
         email_verification_otp = generate_otp()
 
@@ -600,6 +603,29 @@ def register_user_with_referral(referral_code):
         db.session.rollback()
         print("Error during user registration:", str(e))
         return jsonify(message='Failed to register user. Please try again later.'), 500
+
+
+@app.route("/get-mobilizer/<referral_code>", methods=["GET"])
+def get_mobilizer_by_referral_code(referral_code):
+    try:
+        # Check if the referral code exists and get the mobilizer user
+        mobilizer = User.query.filter_by(referral_code=referral_code).first()
+        if not mobilizer:
+            return jsonify(message='No mobilizer found with the provided referral code'), 404
+
+        if mobilizer is None:
+            return jsonify(message="Referral code is None")
+
+        mobilizer_name = {
+            "first_name": mobilizer.first_name,
+            "last_name": mobilizer.last_name
+        }
+
+        return jsonify(mobilizer_name), 200
+
+    except SQLAlchemyError as e:
+        print("Error while fetching mobilizer:", str(e))
+        return jsonify(message='Failed to fetch mobilizer. Please try again later.'), 500
 
 
 @app.route('/edit-user', methods=['PATCH'])
@@ -1927,13 +1953,15 @@ def process_user_payment():
                       #####################
                       """)
                 if data_entry['transaction_status'] == "Successful" and float(data_entry["amount_received"]) >= 1500:
-                    print(f""""The amount that is paid is {data_entry["amount_received"]}""")
+                    print(
+                        f""""The amount that is paid is {data_entry["amount_received"]}""")
                     process_data_entry(data_entry, user)
                 else:
                     continue
         elif isinstance(response_data, dict):
             if response_data['status'] == True and response_data['transaction_status'] == "Successful" and float(response_data["amount_received"]) >= 1500:
-                print(f"""The amount that is paid is {data_entry["amount_received"]}""")
+                print(
+                    f"""The amount that is paid is {data_entry["amount_received"]}""")
                 process_data_entry(response_data, user)
             else:
                 return jsonify(message="Failed transaction 2"), 500
@@ -1951,7 +1979,8 @@ def process_user_payment():
 
 def process_data_entry(data_entry, user):
     if data_entry['transaction_status'] == "Successful" and float(data_entry["amount_received"]) >= 1500:
-        print(f"""The amount that is paid is {data_entry["amount_received"]}""")
+        print(
+            f"""The amount that is paid is {data_entry["amount_received"]}""")
         user.has_paid = True
         db.session.add(user)
         db.session.commit()
@@ -2062,6 +2091,7 @@ def get_total_mobilizers():
         print("Error getting total paid mobilizers:", str(e))
         return jsonify({"error": "An error occurred while getting total paid mobilizers"}), 500
 
+
 @app.route("/payments/total/mobilizers", methods=["GET"])
 @jwt_required()
 @require_role(['Admin', 'Super Admin'])
@@ -2073,6 +2103,7 @@ def get_total_paid_mobilizers():
     except Exception as e:
         print("Error getting total paid mobilizers:", str(e))
         return jsonify({"error": "An error occurred while getting total paid mobilizers"}), 500
+
 
 @app.route('/process-unpaid-user-payments', methods=['GET'])
 @jwt_required()
