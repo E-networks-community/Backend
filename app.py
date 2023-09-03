@@ -2287,6 +2287,11 @@ def make_transfer():
         if float(amount) > user.earnings:
             return jsonify({"message": "Insufficient funds"}), 401
 
+        # Check to see if the user has paid for thier card
+
+        if not user.has_paid:
+            return jsonify({"message": "You have not paid for your cash card"}), 401
+
         print(bank_code)
         print(account_number)
         print(amount)
@@ -2334,6 +2339,23 @@ def confirm_payment():
         return jsonify({"messsage": "Wrong password"}), 401
     # Return the access token and user role as JSON response
     return jsonify({"message": "Password confirmed"}), 200
+
+# route to give earnings to a mobilizer
+
+
+@app.route('/give-earnings', methods=['POST'])
+def give_earnings():
+    user_id = "thecryptic404@gmail.com"
+    amount = 2000
+
+    user = User.query.filter_by(email=user_id).first()
+
+    if user is None:
+        return jsonify({"messsage": "No User as such"}), 401
+
+    user.earnings += float(amount)
+    db.session.commit()
+    return jsonify({"message": "Earnings given successfully"}), 200
 
 
 if __name__ == "__main__":
