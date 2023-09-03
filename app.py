@@ -21,7 +21,6 @@ import cloudinary
 import cloudinary.uploader
 import cloudinary.api
 from passlib.hash import bcrypt_sha256
-#
 cloudinary.config(
     cloud_name="dagw7pro6",
     api_key="761564937985964",
