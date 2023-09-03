@@ -59,8 +59,8 @@ db.init_app(app)
 @app.after_request
 def add_cors_headers(response):
     # Replace with your frontend domain
-    frontend_domain = 'http://localhost:3000'
-    # frontend_domain = 'https://www.enetworksagencybanking.com.ng'
+    # frontend_domain = 'http://localhost:3000'
+    frontend_domain = 'https://www.enetworksagencybanking.com.ng'
     response.headers['Access-Control-Allow-Origin'] = frontend_domain
     response.headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS, PATCH'
     response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
@@ -1750,20 +1750,30 @@ def process_payment(transaction_ref):
         # Parse and return the response
         response_data = response.json()
 
-        if 'status' in response_data and not response_data['status']:
-            error_message = response_data['error']
-            return jsonify(message=error_message)
-
         if isinstance(response_data, list):
             for data_entry in response_data:
-                if not data_entry['status']:
-                    return jsonify(message="Failed transaction")
-                process_data_entry(data_entry, user)
+                print(f"""
+                      #####################
+                      #####################
+                      #####################
+                         {data_entry}
+                      #####################
+                      #####################
+                      #####################
+                      """)
+                if data_entry['transaction_status'] == "Successful" and float(data_entry["amount_received"]) >= 1500:
+                    print(
+                        f""""The amount that is paid is {data_entry["amount_received"]}""")
+                    process_data_entry(data_entry, user)
+                else:
+                    continue
         elif isinstance(response_data, dict):
-            if not response_data['status']:
-                error_message = response_data['error']
-                return jsonify(message=error_message)
-            process_data_entry(response_data, user)
+            if response_data['status'] == True and response_data['transaction_status'] == "Successful" and float(response_data["amount_received"]) >= 1500:
+                print(
+                    f"""The amount that is paid is {data_entry["amount_received"]}""")
+                process_data_entry(response_data, user)
+            else:
+                return jsonify(message="Your payment verification failed"), 500
         else:
             return jsonify(message="Invalid API response format"), 500
 
@@ -2257,12 +2267,26 @@ def verify_account():
 def make_transfer():
     try:
         user_id = get_jwt_identity()
+        print(user_id)
+        password = request.form.get('password')
+        print(password)
+
         user = User.query.filter_by(id=user_id).first()
+
+        if user is None:
+            return jsonify(message="Unauthorized user"), 401
+
+        if not bcrypt_sha256.verify(password, user.password):
+            return jsonify({"message": "Wrong password"}), 401
 
         bank_code = request.form.get('bank_code')
         account_number = request.form.get('account_number')
         amount = request.form.get('amount')
         description = request.form.get('description')
+
+        # Check to see if the amount from the request.form is grater than the earnings amount. If greater return a 401 else continue
+        if float(amount) > user.earnings:
+            return jsonify({"message": "Insufficient funds"}), 401
 
         print(bank_code)
         print(account_number)
@@ -2296,6 +2320,21 @@ def make_transfer():
             return jsonify({"message": f"{transfer_data}"}), 500
     except Exception as e:
         return jsonify({'message': 'An error occurred'}), 500
+
+
+# Route to confirm payment with user password. should just return success with a 200
+@app.route('/confirm-withdrawal', methods=['POST'])
+@jwt_required()
+def confirm_payment():
+    user_id = get_jwt_identity()
+    password = request.json.get('password')
+
+    user = User.query.filter_by(id=user_id).first()
+
+    if user is None or not bcrypt_sha256.verify(password, user.password):
+        return jsonify({"messsage": "Wrong password"}), 401
+    # Return the access token and user role as JSON response
+    return jsonify({"message": "Password confirmed"}), 200
 
 
 if __name__ == "__main__":

@@ -110,6 +110,9 @@ class User(db.Model):
             'profile_image': str(self.profile_image),
             # Add this line to include total_referred_users
             'total_referred_users': self.get_total_referred_users(),
+            # total paid users in total referred users
+            'total_paid_users': self.referred_users.filter_by(has_paid=True).count(),
+            'total_unpaid_users': self.referred_users.filter_by(has_paid=False).count(),
             'total_registered_users': User.get_total_registered_users(),  # Total registered users
             # 'recent_referral_history': self.get_recent_referral_history(),  # Recent referral histor
         }
