@@ -116,6 +116,7 @@ class User(db.Model):
             'total_registered_users': User.get_total_registered_users(),  # Total registered users
             # 'recent_referral_history': self.get_recent_referral_history(),  # Recent referral histor
         }
+#
 
     def get_total_referred_users(self):
         return self.referred_users.count()
