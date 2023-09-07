@@ -649,6 +649,9 @@ def edit_user():
             hashed_password = bcrypt_sha256.hash(new_password)
             user.password = hashed_password
 
+        if 'mobilizer_intern_id_remove' in data:
+            user.mobilizer_intern_id = None
+
         if 'mobilizer_intern_id' in data:
             mobilizer_intern_email = data.get("mobilizer_intern_id")
 
@@ -661,6 +664,13 @@ def edit_user():
             if not paid_user:
                 print("User not found")
                 return jsonify({"message": "User not found"}), 404
+
+            # Check to see if the user is not an intern role account and then return a message saying to connect only intern email account
+            # intern email role_id is 5
+            if paid_user.role_id != 5:
+                print("User is not an intern")
+                return jsonify({"message": "You can only connect an intern email account"}), 404
+
             user.mobilizer_intern_id = paid_user.id
 
         if 'address' in data:
@@ -670,7 +680,7 @@ def edit_user():
         # Commit the changes to the database
         db.session.commit()
 
-        return jsonify({"message": f"User {current_user_id} data updated successfully"}), 200
+        return jsonify({"message": f"Your user data updated successfully"}), 200
 
     except Exception as e:
         return jsonify({"message": "An error occurred", "error": str(e)}), 500
@@ -1944,12 +1954,15 @@ def process_user_payment():
     user = User.query.filter_by(id=user_id).first()
 
     if user.has_paid:
-        return jsonify(message="User has paid already")
+        return jsonify(message="User has paid already"), 203
 
     if user.mobilizer_intern_id is not None:
         intern = User.query.filter_by(id=user.mobilizer_intern_id).first()
         if intern.has_paid:
-            return jsonify(message="Intern has paid already")
+            user.has_paid = True
+            db.session.add(user)
+            db.session.commit()
+            return jsonify(message="Intern has paid already"), 204
 
     # If neither the user nor the intern has paid, proceed to check the payment
     try:
@@ -1957,7 +1970,7 @@ def process_user_payment():
 
         if user_payment:
             handle_payment(user_payment, user)
-            return jsonify(message="Successful payment and earnings distribution done"), 200
+            return jsonify(message="Successful payment and earnings distribution done"), 201
 
         if user.mobilizer_intern_id:
             intern_payment = check_payment(user.mobilizer_intern_id)
@@ -1966,7 +1979,7 @@ def process_user_payment():
                 user.has_paid = True
                 db.session.add(user)
                 db.session.commit()
-                return jsonify(message="Successful payment and earnings distribution done"), 200
+                return jsonify(message="Successful payment and earnings distribution done"), 202
 
         return jsonify({'message': 'Both user and intern have not paid'}), 500
 
@@ -2396,6 +2409,7 @@ def confirm_payment():
 
 
 @app.route('/give-earnings', methods=['POST'])
+@jwt_required()
 def give_earnings():
     user_id = "thecryptic404@gmail.com"
     amount = 2000
