@@ -58,6 +58,8 @@ class User(db.Model):
     referred_users = db.relationship('User', backref=db.backref(
         'referrer', remote_side=[id]), lazy='dynamic')
 
+    mobilizer_intern_id = db.Column(
+        db.String(50), nullable=True, unique=True, index=True)
     # Relationships
     role = db.relationship('Role', backref='users')
     referred_me = db.relationship(
@@ -108,6 +110,7 @@ class User(db.Model):
             'account': self.account,
             'bank_name': self.bank_name,
             'profile_image': str(self.profile_image),
+            'mobilizer_intern_id': self.mobilizer_intern_id,
             # Add this line to include total_referred_users
             'total_referred_users': self.get_total_referred_users(),
             # total paid users in total referred users
