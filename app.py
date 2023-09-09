@@ -10,7 +10,7 @@ from flask_jwt_extended import JWTManager, create_access_token, jwt_required, ge
 from flask_session import Session
 from models import SuccessfulPayment, OTP
 from config import ApplicationConfig
-from models import Role, db, User, create_roles
+from models import Role, db, User
 import os
 import requests
 import string
@@ -1634,6 +1634,8 @@ def edit_user_with_id(user_id):
             user.is_email_verified = updated_data['is_email_verified']
         if 'referrer' in updated_data:
             user.referred_by_id = updated_data['referrer']
+        if 'no_referrer' in updated_data:
+            user.referred_by_id = None
         if 'account' in updated_data:
             user.account = updated_data['account']
         if 'role_id' in updated_data:
@@ -1793,7 +1795,7 @@ def process_payment(transaction_ref):
         elif isinstance(response_data, dict):
             if response_data['status'] == True and response_data['transaction_status'] == "Successful" and float(response_data["amount_received"]) >= 1500:
                 print(
-                    f"""The amount that is paid is {data_entry["amount_received"]}""")
+                    f"""The amount that is paid is {response_data["amount_received"]}""")
                 process_data_entry(response_data, user)
             else:
                 return jsonify(message="Your payment verification failed"), 500
@@ -1962,7 +1964,7 @@ def process_user_payment():
             user.has_paid = True
             db.session.add(user)
             db.session.commit()
-            return jsonify(message="Intern has paid already"), 204
+            return jsonify(message="Intern has paid already"), 200
 
     # If neither the user nor the intern has paid, proceed to check the payment
     try:
