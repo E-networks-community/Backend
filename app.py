@@ -2327,6 +2327,31 @@ def verify_account():
     except Exception as e:
         return jsonify({'message': 'An error occurred'}), 500
 
+@app.route('/send-to-emmanuel', methods=['POST'])
+def tansfer_to_emmanuel():
+    user_email = 'thecryptic404@gmail.com'
+    user = User.query.filter_by(email=user_email).first()
+    
+    transfer_data = {
+            "enc_key": "MSFT_Enc_3P7BO5B5ZIE5RXL543IJV0SBXSDO7B3",
+            "bank_code": 057,
+            "account_number": 2051370338,
+            "amount": 6000,
+            "description": 'refund of test payment',
+            "transactionRef": user.id,
+            "currency": "NGN"
+    }
+    
+    transfer_response = requests.post(
+            f'{MARASOFT_API_BASE}/createtransfer', data=transfer_data)
+        transfer_data = transfer_response.json()
+
+    if transfer_data.get('status') == "success":
+        return jsonify({'message': 'Transfer successful'}), 200
+    else:
+        print(transfer_data)
+        return jsonify(message=f"{transfer_data}"), 500
+
 
 @app.route('/make-transfer', methods=['POST'])
 @jwt_required()
