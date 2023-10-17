@@ -1,8 +1,12 @@
+from io import StringIO, BytesIO
+import pandas as pd
+import zipfile
+from flask import jsonify
 from sqlalchemy.exc import SQLAlchemyError
 from functools import wraps
 import json
 import uuid
-from flask import Flask, redirect, render_template, request, jsonify, send_from_directory, session
+from flask import Flask, redirect, render_template, request, jsonify, send_from_directory, session, send_file
 from flask_bcrypt import Bcrypt
 from flask_migrate import Migrate
 from flask_cors import CORS
@@ -336,11 +340,11 @@ def register_user(role_name, referrer_id=None):
     state = data.get('state')
     local_government_area = data.get('local_government_area')
     address = data.get('address')
-    account = data.get('account')
-    bankName = data.get('bankName')
+    account = data.get('account', None)
+    bankName = data.get('bankName', None)
     enairaId = data.get('enaira_Id', None)
 
-    if not all([first_name, last_name, email, password, phone_number, state, local_government_area, address, account, bankName]):
+    if not all([first_name, last_name, email, password, phone_number, state, local_government_area, address]):
         return jsonify(message='Missing required fields in the request'), 400
 
     user_exists = User.query.filter_by(email=email).first()
@@ -558,18 +562,16 @@ def register_user_with_referral(referral_code):
 
         # Commit the user object with the referral link and profile image (if any)
         email_verification_otp = generate_otp()
-
+        db.session.add(new_user)
+        db.session.commit()
+        
         otp = OTP(user_id=new_user.id, email=new_user.email,
                   otp=email_verification_otp)
 
         # Send the OTP to the user's email for verification
         send_otp_to_email_for_verify(new_user.email, email_verification_otp)
-
-        db.session.add(new_user)
         db.session.add(otp)
         db.session.commit()
-        # db.session.add(otp)
-        # db.session.commit()
 
         # Save the OTP in the user's session for verification later
         access_token = create_access_token(identity=new_user.id)
@@ -1027,6 +1029,31 @@ def get_all_interns():
 
     # Convert the list of interns to dictionaries and return as JSON response
     intern_data = [intern.to_dict() for intern in interns]
+    return jsonify(intern_data)
+
+
+@app.route('/show-interns', methods=['GET'])
+def get_interns():
+    # Query the database to get all users with the 'Intern' role and who have paid
+    interns = User.query.filter_by(role_id=5, has_paid=True).all()
+
+    # Create a list of dictionaries containing data for each intern
+    intern_data = []
+    for intern in interns:
+        intern_info = {
+            'First Name': intern.first_name,
+            'Last Name': intern.last_name,
+            'email': intern.email,
+            'paid': intern.has_paid,
+            'Phone Number': intern.phone_number,
+            'Profile Image': intern.profile_image,
+            'Address': intern.address,
+            'state': intern.state,
+            'Referred By': intern.referred_by_id,
+        }
+        intern_data.append(intern_info)
+
+    # Return the list of intern data as a JSON response
     return jsonify(intern_data)
 
 
@@ -1789,7 +1816,7 @@ def process_payment(transaction_ref):
                 if data_entry['transaction_status'] == "Successful" and float(data_entry["amount_received"]) >= 1500:
                     print(
                         f""""The amount that is paid is {data_entry["amount_received"]}""")
-                    process_data_entry(data_entry, user)
+                    return process_data_entry(data_entry, user)
                 else:
                     continue
         elif isinstance(response_data, dict):
@@ -1802,7 +1829,7 @@ def process_payment(transaction_ref):
         else:
             return jsonify(message="Invalid API response format"), 500
 
-        return jsonify(message="Successful payment and earnings distribution done"), 200
+        return jsonify(message=response_data), 200
 
     except ValueError:
         return jsonify({'message': 'Invalid API response'}), 500
@@ -2088,6 +2115,8 @@ def process_data_entry(data_entry, user):
                 executive.earnings += 50
                 db.session.add(executive)
             db.session.commit()
+
+        return jsonify(message="Payment successful")
 
 
 @app.route('/delete-user/<user_id>', methods=['DELETE'])
@@ -2424,6 +2453,210 @@ def give_earnings():
     user.earnings += float(amount)
     db.session.commit()
     return jsonify(message="Earnings given successfully"), 200
+
+
+@app.route('/download-interns-csv', methods=['GET'])
+def download_interns_csv():
+    # Query the database to get all users with the 'Intern' role and who have paid
+    interns = User.query.filter_by(role_id=4, has_paid=True).all()
+
+    # Create a list of dictionaries containing data for each intern
+    intern_data = []
+    for intern in interns:
+        intern_info = {
+            'First Name': intern.first_name,
+            'Last Name': intern.last_name,
+            'email': intern.email,
+            'paid': intern.has_paid,
+            'Phone Number': intern.phone_number,
+            'Profile Image': intern.profile_image,
+            'Address': intern.address,
+            'state': intern.state,
+            'Referred By': intern.referred_by_id,
+        }
+        intern_data.append(intern_info)
+
+    # Create a DataFrame from the list of dictionaries
+    df = pd.DataFrame(intern_data)
+
+    # Create a BytesIO buffer to hold the CSV file
+    csv_buffer = BytesIO()
+
+    # Convert the DataFrame to a CSV string and write it to the buffer
+    df.to_csv(csv_buffer, index=False, encoding="utf-8")
+
+    # Set the buffer's position to the beginning
+    csv_buffer.seek(0)
+
+    # Send the CSV file as a response with appropriate headers
+    return send_file(
+        csv_buffer,
+        as_attachment=True,
+        download_name='paid-mobilizers.csv',
+        mimetype='text/csv'
+    )
+
+
+@app.route('/download-csv1', methods=['GET'])
+def download_csv1():
+    # Create a ZIP archive to store CSV files
+    zip_buffer = BytesIO()
+    with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zipf:
+        # Iterate through role IDs (4 for mobilizers, 5 for interns)
+        for role_id in [4, 5]:
+            # Create a directory in the ZIP archive for each role
+            role_directory = 'Mobilizers' if role_id == 4 else 'Interns'
+            for state in VALID_STATES:
+                # Query the database to get users of the specified role in the current state who have paid
+                users = User.query.filter_by(
+                    role_id=role_id, state=state, has_paid=True).all()
+
+                # Create a list of dictionaries containing data for each user
+                user_data = []
+                for user in users:
+                    user_info = {
+                        'First Name': user.first_name,
+                        'Last Name': user.last_name,
+                        'Email': user.email,
+                        'Paid': user.has_paid,
+                        'Phone Number': user.phone_number,
+                        'Profile Image': user.profile_image,
+                        'Address': user.address,
+                        'State': user.state,
+                        'Referred By': user.referred_by_id,
+                    }
+                    user_data.append(user_info)
+
+                if user_data:
+                    # Create a DataFrame from the list of dictionaries
+                    df = pd.DataFrame(user_data)
+
+                    # Create a BytesIO buffer to hold the CSV file
+                    csv_buffer = BytesIO()
+
+                    # Convert the DataFrame to a CSV string and write it to the buffer
+                    df.to_csv(csv_buffer, index=False, encoding="utf-8")
+
+                    # Set the buffer's position to the beginning
+                    csv_buffer.seek(0)
+
+                    # Define the file name based on the role and state
+                    file_name = f'{role_directory}/{state}.csv'
+
+                    # Add the CSV file to the ZIP archive
+                    zipf.writestr(file_name, csv_buffer.read())
+
+    # Set the ZIP archive's position to the beginning
+    zip_buffer.seek(0)
+
+    # Send the ZIP archive as a response with appropriate headers
+    return send_file(
+        zip_buffer,
+        as_attachment=True,
+        download_name='user_data.zip',
+        mimetype='application/zip'
+    )
+
+
+@app.route('/download-csv', methods=['GET'])
+def download_csv():
+    # Create separate CSV files for interns and mobilizers, grouped by state
+    # Iterate through role IDs (4 for mobilizers, 5 for interns)
+    for role_id in [4, 5]:
+        for state in VALID_STATES:
+            # Query the database to get users of the specified role in the current state who have paid
+            users = User.query.filter_by(
+                role_id=role_id, state=state, has_paid=True).all()
+
+            # Create a list of dictionaries containing data for each user
+            user_data = []
+            for user in users:
+                user_info = {
+                    'First Name': user.first_name,
+                    'Last Name': user.last_name,
+                    'Email': user.email,
+                    'Paid': user.has_paid,
+                    'Phone Number': user.phone_number,
+                    'Profile Image': user.profile_image,
+                    'Address': user.address,
+                    'State': user.state,
+                    'Referred By': user.referred_by_id,
+                }
+                user_data.append(user_info)
+
+            if user_data:
+                # Create a DataFrame from the list of dictionaries
+                df = pd.DataFrame(user_data)
+
+                # Create a BytesIO buffer to hold the CSV file
+                csv_buffer = BytesIO()
+
+                # Convert the DataFrame to a CSV string and write it to the buffer
+                df.to_csv(csv_buffer, index=False, encoding="utf-8")
+
+                # Set the buffer's position to the beginning
+                csv_buffer.seek(0)
+
+                # Define the file name based on the role and state
+                file_name = f'{state}_{"Mobilizers" if role_id == 4 else "Interns"}.csv'
+
+                # Send the CSV file as a response with appropriate headers
+                return send_file(
+                    csv_buffer,
+                    as_attachment=True,
+                    download_name=file_name,
+                    mimetype='text/csv'
+                )
+
+    # Return a response if no data was found
+    return "No data found for download."
+
+
+@app.route('/download-txt', methods=['GET'])
+def download_txt():
+    # Create a dictionary to store paid users grouped by state and role
+    user_data_by_state = {}
+
+    # Iterate through role IDs (4 for mobilizers, 5 for interns)
+    for role_id in [4, 5]:
+        for state in VALID_STATES:
+            # Query the database to get users of the specified role in the current state who have paid
+            users = User.query.filter_by(
+                role_id=role_id, state=state, has_paid=True).all()
+
+            # Extract names and phone numbers and store them in the dictionary
+            if users:
+                user_info = [
+                    f'{user.first_name} {user.last_name}: {user.phone_number}' for user in users]
+                if state not in user_data_by_state:
+                    user_data_by_state[state] = {}
+                user_data_by_state[state][role_id] = user_info
+
+    # Create a ZIP archive to store TXT files
+    zip_buffer = BytesIO()
+    with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zipf:
+        for state, user_data in user_data_by_state.items():
+            # Create separate TXT files for each state
+            for role_id, users in user_data.items():
+                role_directory = 'Mobilizers' if role_id == 4 else 'Interns'
+                txt_content = '\n'.join(users)
+
+                # Define the file name based on the state and role
+                file_name = f'{role_directory}/{state}_{"Mobilizers" if role_id == 4 else "Interns"}.txt'
+
+                # Write the TXT file to the ZIP archive
+                zipf.writestr(file_name, txt_content)
+
+    # Set the ZIP archive's position to the beginning
+    zip_buffer.seek(0)
+
+    # Send the ZIP archive as a response with appropriate headers
+    return send_file(
+        zip_buffer,
+        as_attachment=True,
+        download_name='user_data.zip',
+        mimetype='application/zip'
+    )
 
 
 if __name__ == "__main__":
