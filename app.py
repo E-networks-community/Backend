@@ -58,13 +58,17 @@ db.init_app(app)
 ####################################################################
 ######## Setting a concurent function to be run per request ########
 
+ALLOWED_ORIGINS = [
+    'http://localhost:3000',
+    'https://www.enetworksagencybanking.com.ng',
+    'https://enetworks-update.vercel.app'
+]
 
 @app.after_request
 def add_cors_headers(response):
-    # Replace with your frontend domain
-    frontend_domain = 'http://localhost:3000, https://www.enetworksagencybanking.com.ng, https://www.enetworksagencybanking.com.ng, https://enetworks-update.vercel.app'
-    # frontend_domain = 'https://www.enetworksagencybanking.com.ng'
-    response.headers['Access-Control-Allow-Origin'] = frontend_domain
+    origin = request.headers.get('Origin')
+    if origin in ALLOWED_ORIGINS:
+        response.headers['Access-Control-Allow-Origin'] = origin
     response.headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS, PATCH'
     response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
     response.headers['Access-Control-Allow-Credentials'] = 'true'
