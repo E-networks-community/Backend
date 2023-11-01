@@ -62,8 +62,8 @@ db.init_app(app)
 @app.after_request
 def add_cors_headers(response):
     # Replace with your frontend domain
-    # frontend_domain = 'http://localhost:3000'
-    frontend_domain = 'https://www.enetworksagencybanking.com.ng'
+    frontend_domain = 'http://localhost:3000, https://www.enetworksagencybanking.com.ng, https://www.enetworksagencybanking.com.ng, https://enetworks-update.vercel.app'
+    # frontend_domain = 'https://www.enetworksagencybanking.com.ng'
     response.headers['Access-Control-Allow-Origin'] = frontend_domain
     response.headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS, PATCH'
     response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
@@ -395,14 +395,17 @@ def register_user(role_name, referrer_id=None):
         profile_image_url = upload_image_to_cloudinary(profile_image)
         new_user.profile_image = profile_image_url
 
-    new_user.new_referral_link = new_user.generate_referral_link()
+    new_user.referral_link = new_user.generate_referral_link()
     email_verification_token = generate_otp()
+
+    db.session.add(new_user)
+    db.session.commit()
+    
     otp = OTP(user_id=new_user.id, email=new_user.email,
               otp=email_verification_token)
 
     send_otp_to_email_for_verify(new_user.email, email_verification_token)
-
-    db.session.add(new_user, otp)
+    db.session.add(otp)
     db.session.commit()
 
     access_token = create_access_token(identity=new_user.id)
@@ -417,7 +420,7 @@ def login():
     user = User.query.filter_by(email=email).first()
 
     if user is None or not bcrypt_sha256.verify(password, user.password):
-        return jsonify({"messsage": "Wrong password"}), 401
+        return jsonify({"message": "Wrong email or password"}), 401
 
     # Create the access token with the user ID as the identity
     access_token = create_access_token(identity=str(user.id))
@@ -564,7 +567,7 @@ def register_user_with_referral(referral_code):
         email_verification_otp = generate_otp()
         db.session.add(new_user)
         db.session.commit()
-        
+
         otp = OTP(user_id=new_user.id, email=new_user.email,
                   otp=email_verification_otp)
 
@@ -575,7 +578,7 @@ def register_user_with_referral(referral_code):
 
         # Save the OTP in the user's session for verification later
         access_token = create_access_token(identity=new_user.id)
-        return jsonify(message=access_token, reffered_me=referrer.id), 200
+        return jsonify(message=access_token, reffered_me=referrer.id, referrer_email=referrer.email, new_user_email=new_user.email), 200
 
     except SQLAlchemyError as e:
         db.session.rollback()
@@ -796,6 +799,7 @@ def get_all_users():
                     'email': user.email,
                     'has_paid': user.has_paid,
                     'Reffered_me': user.referred_by_id,
+                    'Code': user.referral_code,
                     'role': user.role.role_name,  # Access role_name only if user.role is not None
                 }
             else:
@@ -968,6 +972,11 @@ def verify_payment(user_id):
                 referred_by_mobilizer = user.referred_me
                 referred_by_mobilizer.earnings += 100  # Update mobilizer's earnings
                 db.session.add(referred_by_mobilizer)
+            elif user.referred_me and user.referred_me.role and user.referred_me.role.role_name == "Intern":
+                referrer = user.referred_me
+                referrer.earnings += 100
+                referrer.reserved_earnings += 100
+                db.session.add(referrer)
 
             # Check if the user's state has an executive
             if user.state:
@@ -1500,6 +1509,11 @@ def handle_payment_webhook():
                     referred_by_mobilizer = user.referred_me
                     referred_by_mobilizer.earnings += 100
                     db.session.add(referred_by_mobilizer)
+                elif user.referred_me and user.referred_me.role and user.referred_me.role.role_name == "Intern":
+                    referrer = user.referred_me
+                    referrer.earnings += 100
+                    referrer.reserved_earnings += 100
+                    db.session.add(referrer)
 
                 if user.state:
                     executives = User.query.filter_by(state=user.state).all()
@@ -1630,6 +1644,9 @@ def edit_user_with_id(user_id):
                     referrer = User.query.get(user.referred_by_id)
                     if referrer and referrer.role and referrer.role.role_name == "Mobilizer":
                         referrer.earnings += 100
+                    elif referrer and referrer.role and referrer.role.role_name == "Intern":
+                        referrer.earnings += 100
+                        referrer.reserved_earnings += 100
                     if user.state:
                         executives = User.query.filter_by(
                             state=user.state).all()
@@ -1659,6 +1676,10 @@ def edit_user_with_id(user_id):
                 referrer = User.query.get(user.referred_by_id)
                 if referrer and referrer.role and referrer.role.role_name == "Mobilizer":
                     referrer.earnings += 100
+                    db.session.add(referrer)
+                elif referrer and referrer.role and referrer.role.role_name == "Intern":
+                    referrer.earnings += 100
+                    referrer.reserved_earnings += 100
                     db.session.add(referrer)
 
         if 'no_referrer' in updated_data:
@@ -1737,6 +1758,11 @@ def update_payment_status():
                     referrer = User.query.get(user.referred_by_id)
                     if referrer and referrer.role and referrer.role.role_name == "Mobilizer":
                         referrer.earnings += 100
+                        db.session.add(referrer)
+                        db.session.commit()
+                    elif referrer and referrer.role and referrer.role.role_name == "Intern":
+                        referrer.earnings += 100
+                        referrer.reserved_earnings += 100
                         db.session.add(referrer)
                         db.session.commit()
 
@@ -1825,7 +1851,7 @@ def process_payment(transaction_ref):
                     f"""The amount that is paid is {response_data["amount_received"]}""")
                 process_data_entry(response_data, user)
             else:
-                return jsonify(message="Your payment verification failed"), 500
+                return jsonify(message="Your payment verification failed", MARASOFT_RESPONSE=response_data), 500
         else:
             return jsonify(message="Invalid API response format"), 500
 
@@ -2059,6 +2085,11 @@ def handle_payment(data_entry, user):
                 referrer.earnings += 100
                 db.session.add(referrer)
                 db.session.commit()
+            elif referrer and referrer.role and referrer.role.role_name == "Intern":
+                referrer.earnings += 100
+                referrer.reserved_earnings += 100
+                db.session.add(referrer)
+                db.session.commit()
 
         # Save successful payment
         successful_payment = SuccessfulPayment(
@@ -2093,6 +2124,11 @@ def process_data_entry(data_entry, user):
             referrer = User.query.get(user.referred_by_id)
             if referrer and referrer.role and referrer.role.role_name == "Mobilizer":
                 referrer.earnings += 100
+                db.session.add(referrer)
+                db.session.commit()
+            elif referrer and referrer.role and referrer.role.role_name == "Intern":
+                referrer.earnings += 100
+                referrer.reserved_earnings += 100
                 db.session.add(referrer)
                 db.session.commit()
 
@@ -2270,6 +2306,10 @@ def process_marasoft_response(response_data, user):
                     referrer = User.query.get(user.referred_by_id)
                     if referrer and referrer.role and referrer.role.role_name == "Mobilizer":
                         referrer.earnings += 100
+                        db.session.add(referrer)
+                    elif referrer and referrer.role and referrer.role.role_name == "Intern":
+                        referrer.earnings += 100
+                        referrer.reserved_earnings += 100
                         db.session.add(referrer)
 
                 if user.state:
@@ -2498,6 +2538,8 @@ def download_interns_csv():
 
 
 @app.route('/download-csv1', methods=['GET'])
+@jwt_required()
+@require_role(['Admin', 'Super Admin'])
 def download_csv1():
     # Create a ZIP archive to store CSV files
     zip_buffer = BytesIO()
@@ -2657,6 +2699,78 @@ def download_txt():
         download_name='user_data.zip',
         mimetype='application/zip'
     )
+
+
+@app.route('/process-payments', methods=['POST'])
+def process_payments():
+    data = request.json  # Assuming you receive a JSON array of emails
+
+    paid_users = []  # List of users who have paid
+    non_existing_users = []  # List of non-existing users
+    # List of users with successfully verified payments
+    successfully_verified_payments = []
+    payment_verification_failed = []  # List of users whose payment verification failed
+
+    for email in data:
+        user = User.query.filter_by(email=email).first()
+
+        if not user:
+            non_existing_users.append(
+                {"email": email, "message": "User not found"})
+            continue
+
+        if user.has_paid:
+            paid_users.append(
+                {"email": email, "message": "User has paid already"})
+            continue
+
+        try:
+            # Prepare data to send to the Marasoft API
+            data = {
+                'enc_key': "MSFT_Enc_3P7BO5B5ZIE5RXL543IJV0SBXSDO7B3",
+                'transaction_ref': user.id
+            }
+
+            # Send request to the Marasoft API as form data
+            response = requests.post(
+                'https://api.marasoftpay.live/checktransaction', data=data)
+
+            # Parse and return the response
+            response_data = response.json()
+
+            if isinstance(response_data, list):
+                for data_entry in response_data:
+                    if data_entry['transaction_status'] == "Successful" and float(data_entry["amount_received"]) >= 1500:
+                        successfully_verified_payments.append(
+                            {"email": email, "message": "Payment successful"})
+                        process_data_entry(data_entry, user)
+                    else:
+                        payment_verification_failed.append(
+                            {"email": email, "message": "Payment verification failed"})
+            elif isinstance(response_data, dict):
+                if response_data['status'] == True and response_data['transaction_status'] == "Successful" and float(response_data["amount_received"]) >= 1500:
+                    successfully_verified_payments.append(
+                        {"email": email, "message": "Payment successful"})
+                    process_data_entry(response_data, user)
+                else:
+                    payment_verification_failed.append(
+                        {"email": email, "message": "Payment verification failed"})
+            else:
+                payment_verification_failed.append(
+                    {"email": email, "message": "Invalid API response format"})
+        except Exception as e:
+            payment_verification_failed.append(
+                {"email": email, "message": "An error occurred while processing the payment"})
+
+    # Return the categorized lists as a JSON response
+    response_data = {
+        "paid_users": paid_users,
+        "non_existing_users": non_existing_users,
+        "successfully_verified_payments": successfully_verified_payments,
+        "payment_verification_failed": payment_verification_failed
+    }
+
+    return jsonify(response_data)
 
 
 if __name__ == "__main__":
