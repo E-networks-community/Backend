@@ -37,7 +37,7 @@ class User(db.Model):
     local_government = db.Column(db.String(100), index=True)
     state = db.Column(db.String(100), index=True)
     address = db.Column(db.String(255), index=True)
-    bank_name = db.Column(db.String(255), index=True)
+    bank_name = db.Column(db.String(255), index=True, nullable=True)
     referral_link = db.Column(
         db.String(255), unique=True, nullable=True, index=True)
     otps = db.relationship('OTP', backref='user', lazy='dynamic')
@@ -47,11 +47,12 @@ class User(db.Model):
 
     role_id = db.Column(db.Integer, db.ForeignKey(
         'role.id'), nullable=False, index=True)
-    account = db.Column(BigInteger, index=True)
+    account = db.Column(BigInteger, index=True, nullable=True)
     enairaId = db.Column(db.String(255), nullable=True, index=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     modified_at = db.Column(db.DateTime, default=datetime.utcnow)
     earnings = db.Column(db.Float, default=0.0, index=True)
+    reserved_earnings = db.Column(db.Float, default=0.0, index=True)
     profile_image = db.Column(db.TEXT, default=None, index=True)
     is_email_verified = db.Column(db.Boolean, default=False, index=True)
     has_paid = db.Column(db.Boolean, default=False, index=True)
@@ -85,7 +86,33 @@ class User(db.Model):
         ).limit(limit).all()
 
         return history
-#
+    
+    def get_total_paid_referrals(self):
+        return self.referred_users.filter_by(has_paid=True).count()
+
+    # Function to get total unpaid referrals
+    def get_total_unpaid_referrals(self):
+        return self.referred_users.filter_by(has_paid=False).count()
+
+    # Function to get total verified referrals
+    def get_total_verified_referrals(self):
+        return self.referred_users.filter_by(is_email_verified=True).count()
+
+    # Function to get total unverified referrals
+    def get_total_unverified_referrals(self):
+        return self.referred_users.filter_by(is_email_verified=False).count()
+    
+    def get_total_amount_withdrawn(self):
+        total_paid_users = self.referred_users.filter_by(has_paid=True).all()
+        total_amount_withdrawn = sum(user.earnings for user in total_paid_users)
+        return min(total_amount_withdrawn, self.earnings)
+        # 'min' is used to ensure the calculated value doesn't exceed the total earnings
+
+    def get_all_time_earnings(self):
+        total_paid_users = self.referred_users.filter_by(has_paid=True).count()
+        total_amount_earned = total_paid_users * 100
+        return total_amount_earned
+        # 'min' is used to ensure the calculated value doesn't exceed the total earnings
 
     def to_dict(self):
         # Get the ID of the referrer or None if no referrer
@@ -107,17 +134,18 @@ class User(db.Model):
             'modified_at': str(self.modified_at),
             'is_email_verified': str(self.is_email_verified),
             'earnings': self.earnings,
+            'reserved_earnings': self.reserved_earnings,
             'account': self.account,
             'bank_name': self.bank_name,
             'profile_image': str(self.profile_image),
             'mobilizer_intern_id': self.mobilizer_intern_id,
-            # Add this line to include total_referred_users
             'total_referred_users': self.get_total_referred_users(),
-            # total paid users in total referred users
-            'total_paid_users': self.referred_users.filter_by(has_paid=True).count(),
-            'total_unpaid_users': self.referred_users.filter_by(has_paid=False).count(),
-            'total_registered_users': User.get_total_registered_users(),  # Total registered users
-            # 'recent_referral_history': self.get_recent_referral_history(),  # Recent referral histor
+            'total_paid_referrals': self.get_total_paid_referrals(),
+            'total_unpaid_referrals': self.get_total_unpaid_referrals(),
+            'total_verified_referrals': self.get_total_verified_referrals(),
+            'total_unverified_referrals': self.get_total_unverified_referrals(),
+            'total_amount_withdrawn': self.get_total_amount_withdrawn(),
+            'total_amount_earned': self.get_all_time_earnings(),
         }
 
     def get_total_referred_users(self):
