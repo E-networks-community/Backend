@@ -1947,7 +1947,7 @@ def process_payment():
         else:
             return jsonify(message="Invalid API response format"), 500
 
-        
+        # 
 
     except ValueError:
         return jsonify({'message': 'Invalid API response'}), 500

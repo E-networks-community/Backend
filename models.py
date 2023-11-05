@@ -119,7 +119,7 @@ class User(db.Model):
         total_amount_earned = total_paid_users * 100
         return total_amount_earned
         # 'min' is used to ensure the calculated value doesn't exceed the total earnings
-
+# 
     def to_dict(self):
         # Get the ID of the referrer or None if no referrer
         referred_me = self.referred_me.id if self.referred_me else None
