@@ -14,3 +14,5 @@ env
 /.Backend.code-workspace
 /Backend.code-workspace
 test.json
+/app
+/*__pycache__
