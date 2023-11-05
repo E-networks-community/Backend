@@ -102,6 +102,12 @@ class User(db.Model):
     def get_total_unverified_referrals(self):
         return self.referred_users.filter_by(is_email_verified=False).count()
     
+    def get_total_agents_referred(self):
+        return self.referred_users.filter_by(role_id=6).count()
+    
+    def get_total_interns_referred(self):
+        return self.referred_users.filter_by(role_id=5).count()
+    
     def get_total_amount_withdrawn(self):
         total_paid_users = self.referred_users.filter_by(has_paid=True).all()
         total_amount_withdrawn = sum(user.earnings for user in total_paid_users)
@@ -146,6 +152,8 @@ class User(db.Model):
             'total_unverified_referrals': self.get_total_unverified_referrals(),
             'total_amount_withdrawn': self.get_total_amount_withdrawn(),
             'total_amount_earned': self.get_all_time_earnings(),
+            'total_agents_referred': self.get_total_agents_referred(),
+            'total_interns_referred': self.get_total_interns_referred(),
         }
 
     def get_total_referred_users(self):

@@ -635,35 +635,18 @@ def edit_user():
             hashed_password = bcrypt_sha256.hash(new_password)
             user.password = hashed_password
 
-        if 'mobilizer_intern_id_remove' in data:
-            user.mobilizer_intern_id = None
-
-        if 'mobilizer_intern_id' in data:
-            mobilizer_intern_email = data.get("mobilizer_intern_id")
-
-            if user.mobilizer_intern_id is not None:
-                print("Already Have data")
-                return jsonify(message="You already have a connected email account"), 404
-
-            paid_user = User.query.filter_by(
-                email=mobilizer_intern_email).first()
-            if not paid_user:
-                print("User not found")
-                return jsonify(message="User not found"), 404
-
-            # Check to see if the user is not an intern role account and then return a message saying to connect only intern email account
-            # intern email role_id is 5
-            if paid_user.role_id != 5:
-                print("User is not an intern")
-                return jsonify(message="You can only connect an intern email account"), 404
-
-            user.mobilizer_intern_id = paid_user.id
-
         if 'address' in data:
             address = data.get("address")
             user.address = address
 
-        # Commit the changes to the database
+        if 'phoneNumber' in data:
+            phoneNumber = data.get("phoneNumber")
+            user.phone_number = phoneNumber
+        
+        if 'email' in data:
+            email = data.get("email")
+            user.email= email
+
         db.session.commit()
 
         return jsonify(message=f"Your user data updated successfully"), 200
