@@ -128,7 +128,7 @@ class User(db.Model):
             'first_name': self.first_name,
             'last_name': self.last_name,
             'email': self.email,
-            'has_paid': str(self.has_paid),
+            'has_paid': self.has_paid,
             'phone_number': self.phone_number,
             'referral_code': self.referral_code,
             'referral_link': self.referral_link,

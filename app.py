@@ -506,11 +506,11 @@ def register_user_with_referral(referral_code):
         state = data.get('state')
         local_government_area = data.get('local_government_area')
         address = data.get('address')
-        account = data.get('account')
-        bankName = data.get('bankName')
+        account = data.get('account', None)
+        bankName = data.get('bankName', None)
         enairaId = data.get('enaira_Id', None)
 
-        if not all([first_name, last_name, email, password, phone_number, state, local_government_area, address, account, bankName]):
+        if not all([first_name, last_name, email, password, phone_number, state, local_government_area, address]):
             return jsonify(message='Missing required fields in the request'), 400
 
         # Check if the email is already in use
@@ -523,6 +523,113 @@ def register_user_with_referral(referral_code):
 
         # Get the appropriate role (e.g., "Intern") based on the role_name
         role_name = "Intern"  # Change this to the desired role name
+        role = Role.query.filter_by(role_name=role_name).first()
+        if not role:
+            return jsonify(message=f'Invalid role_name provided: {role_name}'), 400
+
+        # Generate a unique referral code for the new user
+        hashed_password = bcrypt_sha256.hash(password)
+        new_user_referral_code = generate_referral_code()
+
+        # Create the new user with referral information
+        new_user = User(
+            first_name=first_name,
+            last_name=last_name,
+            email=email,
+            password=hashed_password,
+            phone_number=phone_number,
+            referral_code=new_user_referral_code,
+            role=role,
+            state=state,
+            local_government=local_government_area,
+            address=address,
+            enairaId=enairaId,
+            account=account,
+            bank_name=bankName
+        )
+
+        # Check if the referral code exists and get the referrer user
+        referrer = User.query.filter_by(referral_code=referral_code).first()
+        if not referrer:
+            return jsonify(message='Invalid referral code provided'), 400
+
+        new_user.referred_by_id = referrer.id
+
+        # Ensure that the referrer exists and is not None
+        # if referrer is None:
+        #     return jsonify(message='Invalid referral code provided'), 400
+
+        if profile_image and allowed_file(profile_image.filename):
+            # Upload the profile image to Cloudinary
+            profile_image_url = upload_image_to_cloudinary(profile_image)
+            new_user.profile_image = profile_image_url
+
+        # Save the referral link before committing the user object
+        new_user.referral_link = new_user.generate_referral_link()
+
+        # Commit the user object with the referral link and profile image (if any)
+        email_verification_otp = generate_otp()
+        db.session.add(new_user)
+        db.session.commit()
+
+        otp = OTP(user_id=new_user.id, email=new_user.email,
+                  otp=email_verification_otp)
+
+        # Send the OTP to the user's email for verification
+        send_otp_to_email_for_verify(new_user.email, email_verification_otp)
+        db.session.add(otp)
+        db.session.commit()
+
+        # Save the OTP in the user's session for verification later
+        access_token = create_access_token(identity=new_user.id)
+        return jsonify(message=access_token, reffered_me=referrer.id, referrer_email=referrer.email, new_user_email=new_user.email), 200
+
+    except SQLAlchemyError as e:
+        db.session.rollback()
+        print("Error during user registration:", str(e))
+        return jsonify(message='Failed to register user. Please try again later.'), 500
+
+@app.route("/referral1/<referral_code>", methods=["POST"])
+def register_user_with_referral1(referral_code):
+    try:
+        # Retrieve the user data from the request form
+        data = request.form.to_dict()
+        profile_image = request.files.get('profile_image')
+
+        if not data:
+            return jsonify(message='No data provided in the request'), 400
+
+        if not profile_image:
+            return jsonify(message='Profile image is required'), 400
+
+        # Extract user registration data from the JSON request
+        first_name = data.get('first_name')
+        last_name = data.get('last_name')
+        email = data.get('email')
+        password = data.get('password')
+        phone_number = data.get('phone_number')
+
+        # New fields
+        state = data.get('state')
+        local_government_area = data.get('local_government_area')
+        address = data.get('address')
+        account = data.get('account', None)
+        bankName = data.get('bankName', None)
+        enairaId = data.get('enaira_Id', None)
+
+        if not all([first_name, last_name, email, password, phone_number, state, local_government_area, address]):
+            return jsonify(message='Missing required fields in the request'), 400
+
+        # Check if the email is already in use
+        if User.query.filter_by(email=email).first():
+            return jsonify(message='Email already registered'), 409
+
+        # Validate state
+        if state not in VALID_STATES:
+            return jsonify(message='Invalid state provided'), 400
+
+        # Get the appropriate role (e.g., "Intern") based on the role_name
+        role_name = "Agent"  # Change this to the desired role name
         role = Role.query.filter_by(role_name=role_name).first()
         if not role:
             return jsonify(message=f'Invalid role_name provided: {role_name}'), 400
@@ -1618,7 +1725,6 @@ def edit_user_with_id(user_id):
         #                 db.session.add(referrer)
 
         if 'has_paid' in updated_data:
-            # Check if the user has already paid
             if user.has_paid:
                 return jsonify({'message': 'User has already paid'}), 400
 
@@ -1629,19 +1735,25 @@ def edit_user_with_id(user_id):
                 # Check if the user has a referrer and update their earnings
                 if user.referred_by_id:
                     referrer = User.query.get(user.referred_by_id)
-                    if referrer and referrer.role and referrer.role.role_name == "Mobilizer":
-                        referrer.earnings += 100
-                    elif referrer and referrer.role and referrer.role.role_name == "Intern":
-                        referrer.earnings += 100
-                        referrer.reserved_earnings += 100
-                    if user.state:
-                        executives = User.query.filter_by(
-                            state=user.state).all()
-                        for executive in executives:
-                            if executive.role and executive.role.role_name == 'Executives':
-                                executive.earnings += 50
-                        db.session.add(referrer)
-                        db.session.add(executive)
+                    if referrer:
+                        if referrer.role and referrer.role.role_name in ("Mobilizer", "Intern"):
+                            # Distribute earnings based on referrer's role
+                            if referrer.role.role_name == "Mobilizer":
+                                referrer.earnings += 100
+                            elif referrer.role.role_name == "Intern":
+                                referrer.earnings += 100
+                                referrer.reserved_earnings += 100
+
+                            # Update earnings for executives in the same state as the user
+                            if user.state:
+                                executives = User.query.filter_by(state=user.state, role_id=3).all()
+                                for executive in executives:
+                                    executive.earnings += 50
+                                    db.session.add(executive)
+
+                            # Save changes for referrer
+                            db.session.add(referrer)
+
 
         if 'has_not_paid' in updated_data:
             user.has_paid = False
@@ -1789,9 +1901,11 @@ def update_payment_status():
         return jsonify({'message': 'An error occurred'}), 500
 
 
-@app.route('/process-payment/<transaction_ref>', methods=['GET'])
-def process_payment(transaction_ref):
-    user = User.query.filter_by(id=transaction_ref).first()
+@app.route('/process-payment', methods=['GET'])
+@jwt_required()
+def process_payment():
+    user_id = get_jwt_identity()
+    user = User.query.filter_by(id=user_id).first()
 
     if user.has_paid:
         return jsonify(message="User has paid already")
@@ -1800,7 +1914,7 @@ def process_payment(transaction_ref):
         # Prepare data to send to the Marasoft API
         data = {
             'enc_key': "MSFT_Enc_3P7BO5B5ZIE5RXL543IJV0SBXSDO7B3",
-            'transaction_ref': transaction_ref
+            'transaction_ref': user_id
         }
 
         # Send request to the Marasoft API as form data
@@ -1817,32 +1931,23 @@ def process_payment(transaction_ref):
 
         if isinstance(response_data, list):
             for data_entry in response_data:
-                print(f"""
-                      #####################
-                      #####################
-                      #####################
-                         {data_entry}
-                      #####################
-                      #####################
-                      #####################
-                      """)
-                if data_entry['transaction_status'] == "Successful" and float(data_entry["amount_received"]) >= 1500:
-                    print(
-                        f""""The amount that is paid is {data_entry["amount_received"]}""")
+                if data_entry['transaction_status'] == "SUCCESSFUL" and float(data_entry["amount_received"]) >= 1500:
                     return process_data_entry(data_entry, user)
+                elif data_entry['transaction_status'] == "PENDING":
+                    return jsonify(message="Payment Still Pending"), 201
                 else:
                     continue
         elif isinstance(response_data, dict):
-            if response_data['status'] == True and response_data['transaction_status'] == "Successful" and float(response_data["amount_received"]) >= 1500:
-                print(
-                    f"""The amount that is paid is {response_data["amount_received"]}""")
+            if response_data['status'] == True and response_data['transaction_status'] == "SUCCESSFUL" and float(response_data["amount_received"]) >= 1500:
                 process_data_entry(response_data, user)
+            if response_data['status'] == True and response_data['transaction_status'] == "PENDING":
+                return jsonify(message="Payment still pending"), 200
             else:
                 return jsonify(message="Your payment verification failed", MARASOFT_RESPONSE=response_data), 500
         else:
             return jsonify(message="Invalid API response format"), 500
 
-        return jsonify(message=response_data), 200
+        
 
     except ValueError:
         return jsonify({'message': 'Invalid API response'}), 500
@@ -1909,86 +2014,6 @@ def initialize_tranfer_payment():
         print("Payment initiation failed:", str(e))
         return jsonify({"error": "Payment initiation failed"}), 500
 
-
-# @app.route('/check-user-payment', methods=['GET'])
-# @jwt_required()
-# def process_user_payment():
-#     user_id = get_jwt_identity()
-#     user = User.query.filter_by(id=user_id).first()
-
-#     if user.has_paid:
-#         return jsonify(message="User has paid already")
-
-#     try:
-#         # Prepare data to send to the Marasoft API
-#         data = {
-#             'enc_key': "MSFT_Enc_3P7BO5B5ZIE5RXL543IJV0SBXSDO7B3",
-#             'transaction_ref': user.id
-#         }
-
-#         # Send request to the Marasoft API as form data
-#         response = requests.post(
-#             'https://api.marasoftpay.live/checktransaction', data=data)
-
-#         # Print the JSON response received from Marasoft API
-#         print("Marasoft API Response:", response.text)
-#         print()
-#         print()
-
-#         # Parse and return the response
-#         # ...
-#         try:
-#             response_data = response.json()
-
-#             if 'status' in response_data and not response_data['status']:
-#                 error_message = response_data['error']
-#                 return jsonify(message=error_message)
-
-#             for data_entry in response_data:
-#                 if not data_entry['status']:
-#                     return jsonify(message="Failed transaction")
-#                 if data_entry['status'] and data_entry['transaction_status'] == "Successful":
-#                     user.has_paid = True
-#                     db.session.add(user)
-#                     db.session.commit()
-
-#                     # Check if the user has a referrer and update their earnings
-#                     if user.referred_by_id:
-#                         referrer = User.query.get(user.referred_by_id)
-#                         if referrer and referrer.role and referrer.role.role_name == "Mobilizer":
-#                             referrer.earnings += 100
-#                             db.session.add(referrer)
-#                             db.session.commit()
-
-#                     # Save successful payment
-#                     successful_payment = SuccessfulPayment(
-#                         user_id=user.id,
-#                         transaction_reference=data_entry.get('merchant_ref'),
-#                         payment_amount=data_entry.get(
-#                             'transaction_amount')  # Adjust this accordingly
-#                     )
-#                     db.session.add(successful_payment)
-#                     db.session.commit()
-
-#                     # Update earnings for executives in the user's state
-#                     if user.state:
-#                         users_state = user.state
-#                         executives = User.query.filter(
-#                             User.role_id == 3, User.state == users_state).first()
-#                         for executive in executives:
-#                             executive.earnings += 50
-#                             db.session.add(executive)
-#                         db.session.commit()
-
-#             return jsonify(message="Successful payment and earnings distribution done"), 200
-#         except ValueError:
-#             return jsonify({'message': 'Invalid API response'}), 500
-#         # ...
-
-#     except Exception as e:
-#         print(e)
-#         return jsonify({'message': 'An error occurred'}), 500
-# print("Marasoft API Response:", response.text)
 @app.route('/check-user-payment', methods=['GET'])
 @jwt_required()
 def process_user_payment():
