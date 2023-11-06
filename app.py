@@ -2131,25 +2131,25 @@ def process_data_entry(data_entry, user):
         db.session.add(user)
         db.session.commit()
 
-        # Check if the user has a referrer and update their earnings
+        # Check if the user has a referrer and update their earnings based on roles
+        referrer = None
         if user.referred_by_id:
             referrer = User.query.get(user.referred_by_id)
-            if referrer and referrer.role and referrer.role.role_name == "Mobilizer":
-                referrer.earnings += 100
-                db.session.add(referrer)
-                db.session.commit()
-            elif referrer and referrer.role and referrer.role.role_name == "Intern":
-                referrer.earnings += 100
-                referrer.reserved_earnings += 100
-                db.session.add(referrer)
-                db.session.commit()
-
+            if user.role.role_name == "Agent":
+                if referrer and referrer.role and referrer.role.role_name == "Intern":
+                    referrer.earnings += 100
+                    referrer.reserved_earnings += 100
+                    db.session.add(referrer)
+            elif user.role.role_name == "Intern":
+                if referrer and referrer.role and referrer.role.role_name == "Mobilizer":
+                    referrer.earnings += 100
+                    db.session.add(referrer)
+        
         # Save successful payment
         successful_payment = SuccessfulPayment(
             user_id=user.id,
             transaction_reference=data_entry.get('merchant_ref'),
-            payment_amount=data_entry.get(
-                'transaction_amount')  # Adjust this accordingly
+            payment_amount=data_entry.get('transaction_amount')  # Adjust this accordingly
         )
         db.session.add(successful_payment)
         db.session.commit()
@@ -2165,6 +2165,7 @@ def process_data_entry(data_entry, user):
             db.session.commit()
 
         return jsonify(message="Payment successful")
+
 
 
 @app.route('/delete-user/<user_id>', methods=['DELETE'])
