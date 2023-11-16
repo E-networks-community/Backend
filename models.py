@@ -6,6 +6,51 @@ from sqlalchemy import BigInteger, select, join
 db = SQLAlchemy()
 
 
+class Hire(db.Model):
+    __tablename__ = 'hires'
+    id = db.Column(db.Integer, primary_key=True)
+    email = db.Column(db.String(255), unique=True,
+                      nullable=False, index=True)
+    phone_number = db.Column(db.String(20), index=True)
+    active_contact_address = db.Column(db.String(255), index=True)
+    state = db.Column(db.String(100), index=True)
+    local_government = db.Column(db.String(100), index=True)
+    ward = db.Column(db.String(100), index=True)
+    guarantor_name = db.Column(db.String(100), index=True)
+    language = db.Column(db.String(100), index=True)
+    position = db.Column(db.String(100), index=True)
+    gender = db.Column(db.String(100), index=True)
+    next_of_kin_name = db.Column(db.String(100), index=True)
+    next_of_kin_phone_number = db.Column(db.String(100), index=True)
+    next_of_kin_relationship = db.Column(db.String(100), index=True)
+    next_of_kin_email = db.Column(db.String(100), index=True)
+    profile_image = db.Column(db.TEXT, default=None, index=True)
+    to_work_state = db.Column(db.String(100), index=True)
+    hire_status = db.Column(db.String(100), index=True)
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "email": self.email,
+            "phone_number": self.phone_number,
+            "active_contact_address": self.active_contact_address,
+            "state": self.state,
+            "local_government": self.local_government,
+            "ward": self.ward,
+            "guarantor_name": self.guarantor_name,
+            "language": self.language,
+            "position": self.position,
+            "gender": self.gender,
+            "next_of_kin_name": self.next_of_kin_name,
+            "next_of_kin_phone_number": self.next_of_kin_phone_number,
+            "next_of_kin_relationship": self.next_of_kin_relationship,
+            "next_of_kin_email": self.next_of_kin_email,
+            "profile_image": self.profile_image,
+            "to_work_state": self.to_work_state,
+            "hire_status": self.hire_status,
+        }
+
+
 class SuccessfulPayment(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.String(36), db.ForeignKey(
@@ -86,7 +131,7 @@ class User(db.Model):
         ).limit(limit).all()
 
         return history
-    
+
     def get_total_paid_referrals(self):
         return self.referred_users.filter_by(has_paid=True).count()
 
@@ -101,16 +146,17 @@ class User(db.Model):
     # Function to get total unverified referrals
     def get_total_unverified_referrals(self):
         return self.referred_users.filter_by(is_email_verified=False).count()
-    
+
     def get_total_agents_referred(self):
         return self.referred_users.filter_by(role_id=6).count()
-    
+
     def get_total_interns_referred(self):
         return self.referred_users.filter_by(role_id=5).count()
-    
+
     def get_total_amount_withdrawn(self):
         total_paid_users = self.referred_users.filter_by(has_paid=True).all()
-        total_amount_withdrawn = sum(user.earnings for user in total_paid_users)
+        total_amount_withdrawn = sum(
+            user.earnings for user in total_paid_users)
         return min(total_amount_withdrawn, self.earnings)
         # 'min' is used to ensure the calculated value doesn't exceed the total earnings
 
@@ -119,7 +165,8 @@ class User(db.Model):
         total_amount_earned = total_paid_users * 100
         return total_amount_earned
         # 'min' is used to ensure the calculated value doesn't exceed the total earnings
-# 
+#
+
     def to_dict(self):
         # Get the ID of the referrer or None if no referrer
         referred_me = self.referred_me.id if self.referred_me else None

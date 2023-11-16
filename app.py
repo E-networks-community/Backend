@@ -13,8 +13,8 @@ from flask_cors import CORS
 from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
 from flask_session import Session
 from models import SuccessfulPayment, OTP
+from models import Role, db, User, Hire
 from config import ApplicationConfig
-from models import Role, db, User
 import os
 import requests
 import string
@@ -57,6 +57,7 @@ db.init_app(app)
 ####################################################################
 ####################################################################
 ######## Setting a concurent function to be run per request ########
+
 
 @app.after_request
 def add_cors_headers(response):
@@ -404,7 +405,7 @@ def register_user(role_name, referrer_id=None):
 
     db.session.add(new_user)
     db.session.commit()
-    
+
     otp = OTP(user_id=new_user.id, email=new_user.email,
               otp=email_verification_token)
 
@@ -589,6 +590,7 @@ def register_user_with_referral(referral_code):
         print("Error during user registration:", str(e))
         return jsonify(message='Failed to register user. Please try again later.'), 500
 
+
 @app.route("/referral1/<referral_code>", methods=["POST"])
 def register_user_with_referral1(referral_code):
     try:
@@ -749,10 +751,10 @@ def edit_user():
         if 'phoneNumber' in data:
             phoneNumber = data.get("phoneNumber")
             user.phone_number = phoneNumber
-        
+
         if 'email' in data:
             email = data.get("email")
-            user.email= email
+            user.email = email
 
         db.session.commit()
 
@@ -1746,14 +1748,14 @@ def edit_user_with_id(user_id):
 
                             # Update earnings for executives in the same state as the user
                             if user.state:
-                                executives = User.query.filter_by(state=user.state, role_id=3).all()
+                                executives = User.query.filter_by(
+                                    state=user.state, role_id=3).all()
                                 for executive in executives:
                                     executive.earnings += 50
                                     db.session.add(executive)
 
                             # Save changes for referrer
                             db.session.add(referrer)
-
 
         if 'has_not_paid' in updated_data:
             user.has_paid = False
@@ -1947,7 +1949,7 @@ def process_payment():
         else:
             return jsonify(message="Invalid API response format"), 500
 
-        # 
+        #
 
     except ValueError:
         return jsonify({'message': 'Invalid API response'}), 500
@@ -2013,6 +2015,7 @@ def initialize_tranfer_payment():
     except Exception as e:
         print("Payment initiation failed:", str(e))
         return jsonify({"error": "Payment initiation failed"}), 500
+
 
 @app.route('/check-user-payment', methods=['GET'])
 @jwt_required()
@@ -2144,12 +2147,13 @@ def process_data_entry(data_entry, user):
                 if referrer and referrer.role and referrer.role.role_name == "Mobilizer":
                     referrer.earnings += 100
                     db.session.add(referrer)
-        
+
         # Save successful payment
         successful_payment = SuccessfulPayment(
             user_id=user.id,
             transaction_reference=data_entry.get('merchant_ref'),
-            payment_amount=data_entry.get('transaction_amount')  # Adjust this accordingly
+            payment_amount=data_entry.get(
+                'transaction_amount')  # Adjust this accordingly
         )
         db.session.add(successful_payment)
         db.session.commit()
@@ -2165,7 +2169,6 @@ def process_data_entry(data_entry, user):
             db.session.commit()
 
         return jsonify(message="Payment successful")
-
 
 
 @app.route('/delete-user/<user_id>', methods=['DELETE'])
@@ -2784,6 +2787,108 @@ def process_payments():
     }
 
     return jsonify(response_data)
+
+
+AVAILABLE_POSITIONS = [
+    "State Managers", "State Asst Manager", "State Admin Sec",
+    "State Operations Manager", "State Media and Public Relations Officer",
+    "State Legal Asst", "State Finance Officer", "State Tech Officer",
+    "State Community Relations Officer", "State Product Dev Officer",
+    "State Business Development Officer", "State Personnel Manager",
+    "State Desk Officer( NGO DESK OFFICE)", "Dep Desk Officer",
+    "Gen Secretary", "Asst Gen Secretary", "Financial Secretary",
+    "Treasurer", "Information Officer ( Public and Traditional)",
+    "Asst Information Officer( Social Media)", "Legal Adviser",
+    "Women Affairs Officer", "Youth Affairs Officer",
+    "Organising Officer"
+]
+
+GENDER = ["Male", "Female"]
+
+
+# Hire register route based off the hire table in the models.py file
+@app.route('/register_for_hire', methods=['POST'])
+def register_for_hire():
+    # Validate and process the input data
+    email = request.form.get('email')
+    phone_number = request.form.get('phone_number')
+    active_contact_address = request.form.get('active_contact_address')
+    state = request.form.get('state')
+    local_government = request.form.get('local_government')
+    ward = request.form.get('ward')
+    guarantor_name = request.form.get('guarantor_name')
+    language = request.form.get('language')
+    position = request.form.get('position')
+    gender = request.form.get('gender')
+    next_of_kin_name = request.form.get('next_of_kin_name')
+    next_of_kin_phone_number = request.form.get('next_of_kin_phone_number')
+    next_of_kin_relationship = request.form.get('next_of_kin_relationship')
+    next_of_kin_email = request.form.get('next_of_kin_email')
+    to_work_state = request.form.get('to_work_state')
+    profile_image = request.files.get('profile_image')
+
+    if not all([email, phone_number, active_contact_address, state, local_government, ward, guarantor_name,
+                language, position, gender, next_of_kin_name, next_of_kin_phone_number,
+                next_of_kin_relationship, next_of_kin_email, profile_image, to_work_state]):
+        return jsonify({'message': 'All fields are required'}), 400
+
+    if position not in AVAILABLE_POSITIONS:
+        return jsonify({'message': 'Invalid position'}), 400
+
+    if state not in VALID_STATES:
+        return jsonify({'message': 'Invalid state'}), 400
+
+    if to_work_state not in VALID_STATES:
+        return jsonify({'message': 'Invalid state'}), 400
+
+    if gender not in GENDER:
+        return jsonify({'message': 'Invalid Gender'})
+
+    # Check if the email is already registered
+    existing_hire = Hire.query.filter_by(email=email).first()
+    if existing_hire:
+        return jsonify({'message': 'Email already registered'}), 400
+
+    # Create a new Hire instance and add it to the database
+    new_hire = Hire(
+        email=email,
+        phone_number=phone_number,
+        active_contact_address=active_contact_address,
+        state=state,
+        local_government=local_government,
+        ward=ward,
+        guarantor_name=guarantor_name,
+        language=language,
+        position=position,
+        gender=gender,
+        next_of_kin_name=next_of_kin_name,
+        next_of_kin_phone_number=next_of_kin_phone_number,
+        next_of_kin_relationship=next_of_kin_relationship,
+        next_of_kin_email=next_of_kin_email,
+        to_work_state=to_work_state
+    )
+
+    if profile_image and allowed_file(profile_image.filename):
+        # Upload the profile image to Cloudinary
+        profile_image_url = upload_image_to_cloudinary(profile_image)
+        new_hire.profile_image = profile_image_url
+
+    db.session.add(new_hire)
+    db.session.commit()
+
+    return jsonify({'message': 'Registration successful'}), 200
+
+
+@app.route('/show-applications', methods=['GET'])
+def show_applications():
+    # Query the database to get all applications
+    applications = Hire.query.all()
+
+    # Create a list of dictionaries containing data for each application
+    intern_data = [hire.to_dict() for hire in applications]
+
+    # Return the list of application data as a JSON response
+    return jsonify(intern_data)
 
 
 if __name__ == "__main__":
