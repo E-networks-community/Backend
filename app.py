@@ -2825,11 +2825,13 @@ def register_for_hire():
     next_of_kin_relationship = request.form.get('next_of_kin_relationship')
     next_of_kin_email = request.form.get('next_of_kin_email')
     to_work_state = request.form.get('to_work_state')
+    agent_account_email = request.form.get('agent_account_email')
+    agent_account_id = request.form.get('agent_account_id')
     profile_image = request.files.get('profile_image')
 
     if not all([email, phone_number, active_contact_address, state, local_government, ward, guarantor_name,
                 language, position, gender, next_of_kin_name, next_of_kin_phone_number,
-                next_of_kin_relationship, next_of_kin_email, profile_image, to_work_state]):
+                next_of_kin_relationship, next_of_kin_email, profile_image, to_work_state, agent_account_id, agent_account_email]):
         return jsonify({'message': 'All fields are required'}), 400
 
     if position not in AVAILABLE_POSITIONS:
@@ -2865,7 +2867,9 @@ def register_for_hire():
         next_of_kin_phone_number=next_of_kin_phone_number,
         next_of_kin_relationship=next_of_kin_relationship,
         next_of_kin_email=next_of_kin_email,
-        to_work_state=to_work_state
+        to_work_state=to_work_state,
+        agent_account_email=agent_account_email,
+        agent_account_id=agent_account_id,
     )
 
     if profile_image and allowed_file(profile_image.filename):

@@ -27,6 +27,9 @@ class Hire(db.Model):
     profile_image = db.Column(db.TEXT, default=None, index=True)
     to_work_state = db.Column(db.String(100), index=True)
     hire_status = db.Column(db.String(100), index=True)
+    agent_account_email = db.Column(db.String(100), index=True, unique=True)
+    agent_account_id = db.Column(db.String(100), index=True, unique=True)
+    
 
     def to_dict(self):
         return {
