@@ -13,7 +13,7 @@ from flask_cors import CORS
 from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
 from flask_session import Session
 from models import SuccessfulPayment, OTP
-from models import Role, db, User, Hire
+from models import Role, db, User, Hire, AmonHire
 from config import ApplicationConfig
 import os
 import requests
@@ -2891,6 +2891,83 @@ def register_for_hire():
 
     # Create a new Hire instance and add it to the database
     new_hire = Hire(
+        email=email,
+        phone_number=phone_number,
+        active_contact_address=active_contact_address,
+        state=state,
+        local_government=local_government,
+        ward=ward,
+        guarantor_name=guarantor_name,
+        guarantor_phone_number=guarantor_phone_number,
+        language=language,
+        position=position,
+        gender=gender,
+        next_of_kin_name=next_of_kin_name,
+        next_of_kin_phone_number=next_of_kin_phone_number,
+        next_of_kin_relationship=next_of_kin_relationship,
+        next_of_kin_email=next_of_kin_email,
+        to_work_state=to_work_state,
+        agent_account_email=agent_account_email,
+        agent_account_id=agent_account_id,
+    )
+
+    if profile_image and allowed_file(profile_image.filename):
+        # Upload the profile image to Cloudinary
+        profile_image_url = upload_image_to_cloudinary(profile_image)
+        new_hire.profile_image = profile_image_url
+
+    db.session.add(new_hire)
+    db.session.commit()
+
+    return jsonify({'message': 'Registration successful'}), 200
+# Hire register route based off the hire table in the models.py file
+@app.route('/register_for_hire/ammon', methods=['POST'])
+def amon_register_for_hire():
+    # Validate and process the input data
+    email = request.form.get('email')
+    phone_number = request.form.get('phone_number')
+    active_contact_address = request.form.get('active_contact_address')
+    state = request.form.get('state')
+    local_government = request.form.get('local_government')
+    ward = request.form.get('ward')
+    guarantor_name = request.form.get('guarantor_name')
+    guarantor_phone_number = request.form.get('guarantor_phone_number')
+    language = request.form.get('language')
+    position = request.form.get('position')
+    gender = request.form.get('gender')
+    next_of_kin_name = request.form.get('next_of_kin_name')
+    next_of_kin_phone_number = request.form.get('next_of_kin_phone_number')
+    next_of_kin_relationship = request.form.get('next_of_kin_relationship')
+    next_of_kin_email = request.form.get('next_of_kin_email')
+    to_work_state = request.form.get('to_work_state')
+    agent_account_email = request.form.get('agent_account_email')
+    agent_account_id = request.form.get('agent_account_id')
+    profile_image = request.files.get('profile_image')
+
+    if not all([email, phone_number, active_contact_address, state, local_government, ward, guarantor_name,
+                language, position, gender, next_of_kin_name, next_of_kin_phone_number,
+                next_of_kin_relationship, next_of_kin_email, profile_image, to_work_state, agent_account_id, agent_account_email, guarantor_phone_number]):
+        return jsonify({'message': 'All fields are required'}), 400
+
+    if position not in AVAILABLE_POSITIONS:
+        return jsonify({'message': 'Invalid position'}), 400
+
+    if state not in VALID_STATES:
+        return jsonify({'message': 'Invalid state'}), 400
+
+    if to_work_state not in VALID_STATES:
+        return jsonify({'message': 'Invalid state'}), 400
+
+    if gender not in GENDER:
+        return jsonify({'message': 'Invalid Gender'})
+
+    # Check if the email is already registered
+    existing_hire = AmonHire.query.filter_by(email=email).first()
+    if existing_hire:
+        return jsonify({'message': 'Email already registered'}), 400
+
+    # Create a new Hire instance and add it to the database
+    new_hire = AmonHire(
         email=email,
         phone_number=phone_number,
         active_contact_address=active_contact_address,

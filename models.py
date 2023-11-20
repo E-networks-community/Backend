@@ -56,6 +56,56 @@ class Hire(db.Model):
         }
 
 
+class AmonHire(db.Model):
+    __tablename__ = 'amonhires'
+    id = db.Column(db.Integer, primary_key=True)
+    email = db.Column(db.String(255), unique=True,
+                      nullable=False, index=True)
+    phone_number = db.Column(db.String(20), index=True)
+    active_contact_address = db.Column(db.String(255), index=True)
+    state = db.Column(db.String(100), index=True)
+    local_government = db.Column(db.String(100), index=True)
+    ward = db.Column(db.String(100), index=True)
+    guarantor_name = db.Column(db.String(100), index=True)
+    guarantor_phone_number = db.Column(db.String(100), index=True)
+    language = db.Column(db.String(100), index=True)
+    position = db.Column(db.String(100), index=True)
+    gender = db.Column(db.String(100), index=True)
+    next_of_kin_name = db.Column(db.String(100), index=True)
+    next_of_kin_phone_number = db.Column(db.String(100), index=True)
+    next_of_kin_relationship = db.Column(db.String(100), index=True)
+    next_of_kin_email = db.Column(db.String(100), index=True)
+    profile_image = db.Column(db.TEXT, default=None, index=True)
+    to_work_state = db.Column(db.String(100), index=True)
+    hire_status = db.Column(db.String(100), index=True)
+    agent_account_email = db.Column(db.String(100), index=True, unique=True)
+    agent_account_id = db.Column(db.String(100), index=True, unique=True)
+    
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "email": self.email,
+            "phone_number": self.phone_number,
+            "active_contact_address": self.active_contact_address,
+            "state": self.state,
+            "local_government": self.local_government,
+            "ward": self.ward,
+            "guarantor_name": self.guarantor_name,
+            "guarantor_phone_number": self.guarantor_phone_number,
+            "language": self.language,
+            "position": self.position,
+            "gender": self.gender,
+            "next_of_kin_name": self.next_of_kin_name,
+            "next_of_kin_phone_number": self.next_of_kin_phone_number,
+            "next_of_kin_relationship": self.next_of_kin_relationship,
+            "next_of_kin_email": self.next_of_kin_email,
+            "profile_image": self.profile_image,
+            "to_work_state": self.to_work_state,
+            "hire_status": self.hire_status,
+        }
+
+
 class SuccessfulPayment(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.String(36), db.ForeignKey(
