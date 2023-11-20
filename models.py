@@ -17,6 +17,7 @@ class Hire(db.Model):
     local_government = db.Column(db.String(100), index=True)
     ward = db.Column(db.String(100), index=True)
     guarantor_name = db.Column(db.String(100), index=True)
+    guarantor_phone_number = db.Column(db.String(100), index=True)
     language = db.Column(db.String(100), index=True)
     position = db.Column(db.String(100), index=True)
     gender = db.Column(db.String(100), index=True)
@@ -41,6 +42,7 @@ class Hire(db.Model):
             "local_government": self.local_government,
             "ward": self.ward,
             "guarantor_name": self.guarantor_name,
+            "guarantor_phone_number": self.guarantor_phone_number,
             "language": self.language,
             "position": self.position,
             "gender": self.gender,

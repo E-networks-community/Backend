@@ -2854,6 +2854,7 @@ def register_for_hire():
     local_government = request.form.get('local_government')
     ward = request.form.get('ward')
     guarantor_name = request.form.get('guarantor_name')
+    guarantor_phone_number = request.form.get('guarantor_phone_number')
     language = request.form.get('language')
     position = request.form.get('position')
     gender = request.form.get('gender')
@@ -2868,7 +2869,7 @@ def register_for_hire():
 
     if not all([email, phone_number, active_contact_address, state, local_government, ward, guarantor_name,
                 language, position, gender, next_of_kin_name, next_of_kin_phone_number,
-                next_of_kin_relationship, next_of_kin_email, profile_image, to_work_state, agent_account_id, agent_account_email]):
+                next_of_kin_relationship, next_of_kin_email, profile_image, to_work_state, agent_account_id, agent_account_email, guarantor_phone_number]):
         return jsonify({'message': 'All fields are required'}), 400
 
     if position not in AVAILABLE_POSITIONS:
@@ -2897,6 +2898,7 @@ def register_for_hire():
         local_government=local_government,
         ward=ward,
         guarantor_name=guarantor_name,
+        guarantor_phone_number=guarantor_phone_number,
         language=language,
         position=position,
         gender=gender,
