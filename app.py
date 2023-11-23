@@ -65,7 +65,7 @@ def add_cors_headers(response):
         'http://localhost:3000',
         'https://www.enetworksagencybanking.com.ng',
         'https://enetworks-update.vercel.app',
-        'https://jobs-admin.vercel.app/'
+        'https://jobs-admin.vercel.app'
     ]
 
     origin = request.headers.get('Origin')
