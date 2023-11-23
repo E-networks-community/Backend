@@ -13,7 +13,7 @@ from flask_cors import CORS
 from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
 from flask_session import Session
 from models import SuccessfulPayment, OTP
-from models import Role, db, User, Hire, AmonHire
+from models import Role, db, User, Hire, AmonHire, Admin
 from config import ApplicationConfig
 import os
 import requests
@@ -1146,15 +1146,15 @@ def get_interns():
     intern_data = []
     for intern in interns:
         intern_info = {
-            'First Name': intern.first_name,
-            'Last Name': intern.last_name,
+            'first_name': intern.first_name,
+            'last_name': intern.last_name,
             'email': intern.email,
-            'paid': intern.has_paid,
-            'Phone Number': intern.phone_number,
-            'Profile Image': intern.profile_image,
-            'Address': intern.address,
+            'has_paid': intern.has_paid,
+            'phone_number': intern.phone_number,
+            'profile_image': intern.profile_image,
+            'address': intern.address,
             'state': intern.state,
-            'Referred By': intern.referred_by_id,
+            'referred_by_id': intern.referred_by_id,
         }
         intern_data.append(intern_info)
 
@@ -3009,6 +3009,170 @@ def show_applications():
 
     # Return the list of application data as a JSON response
     return jsonify(intern_data)
+
+# Create an admin according to the Admin model
+@app.route("/jobs/admin/create", methods=["POST"])
+def create_jobs_admin():
+    # Validate and process the input data
+    email = request.form.get('email')
+    password = request.form.get('password')
+    first_name = request.form.get('first_name')
+    last_name = request.form.get('last_name')
+    phone_number = request.form.get('phone_number')
+
+    if not all([email, password, first_name, last_name, phone_number]):
+        return jsonify({'message': 'All fields are required'}), 400
+
+    # Check if the email is already registered
+    existing_admin = Admin.query.filter_by(email=email).first()
+    if existing_admin:
+        return jsonify({'message': 'Email already registered'}), 400
+
+    # Create a new Admin instance and add it to the database
+    new_admin = Admin(
+        email=email,
+        password=bcrypt_sha256.hash(password),
+        first_name=first_name,
+        last_name=last_name,
+        phone_number=phone_number
+    )
+    db.session.add(new_admin)
+    db.session.commit()
+
+    return jsonify({'message': 'Admin created successfully'}), 200
+
+@app.route("/jobs/admin/login", methods=["POST"])
+def login_jobs_admin():
+    # Validate and process the input data
+    email = request.json.get('email')
+    password = request.json.get('password')
+
+    if not all([email, password]):
+        return jsonify({'message': 'All fields are required'}), 400
+
+    # Check if the email is already registered
+    existing_admin = Admin.query.filter_by(email=email).first()
+    if not existing_admin:
+        return jsonify({'message': 'Email not registered'}), 400
+
+    # Check if the password is correct
+    if not bcrypt_sha256.verify(password, existing_admin.password):
+        return jsonify({'message': 'Wrong password'}), 400
+
+    # Generate an access token for the user
+    access_token = create_access_token(identity=existing_admin.id)
+
+    # Return the access token and user role as JSON response
+    return jsonify(access_token=access_token, role="Admin"), 200
+
+
+@app.route("/jobs/admin/applications", methods=["GET"])
+@jwt_required()
+def get_applications():
+    # Query the database to get all applications
+    applications = Hire.query.all()
+
+    # Create a list of dictionaries containing data for each application
+    intern_data = [hire.to_dict() for hire in applications]
+
+    # Return the list of application data as a JSON response
+    return jsonify(intern_data)
+
+
+# Dashboard
+@app.route("/jobs/admin/dashboard", methods=["GET"])
+@jwt_required()
+def get_dashboard():
+    user_id = get_jwt_identity()
+
+    # Query the database to fetch the user's data
+    user = Admin.query.filter_by(id=user_id).first()
+
+    if not user:
+        return jsonify(message='User not found'), 404
+
+    user_data = user.to_dict()
+    return jsonify(user_data), 200
+
+# Edit admin data
+@app.route("/jobs/admin/edit", methods=["POST"])
+@jwt_required()
+def edit_admin():
+    user_id = get_jwt_identity()
+
+    # Query the database to fetch the user's data
+    user = Admin.query.filter_by(id=user_id).first()
+
+    if not user:
+        return jsonify(message='User not found'), 404
+
+    # Validate and process the input data
+    email = request.form.get('email')
+    password = request.form.get('password')
+    first_name = request.form.get('first_name')
+    last_name = request.form.get('last_name')
+    phone_number = request.form.get('phone_number')
+
+    if not all([email, password, first_name, last_name, phone_number]):
+        return jsonify({'message': 'All fields are required'}), 400
+
+    # Check if the email is already registered
+    existing_admin = Admin.query.filter_by(email=email).first()
+    if existing_admin:
+        return jsonify({'message': 'Email already registered'}), 400
+
+    # Check if the password is correct
+    if not bcrypt_sha256.verify(password, user.password):
+        return jsonify({'message': 'Wrong password'}), 400
+
+    # Update the user's data
+    if email is not None:
+        user.email = email
+    if password is not None:
+        user.password = bcrypt_sha256.hash(password)
+    if first_Name is not None:
+        user.first_name = first_name
+    if last_name is not None:
+        user.last_name = last_name
+    if phone_number is not None:
+        user.phone_number = phone_number
+
+    db.session.add(user)
+    db.session.commit()
+
+    return jsonify({'message': 'User data updated successfully'}), 200
+
+
+# api route to pre cretae an admin account
+@app.route("/jobs/admin/create", methods=["GET"])
+def pre_create_admin():
+    # Validate and process the input data
+    email = "legadax@gmail.com"
+    password = "Aldorax@2023"
+    first_name = "Emmanuel"
+    last_name = "Appah"
+    phone_number = "09066438709"
+
+    if not all([email, password, first_name, last_name, phone_number]):
+        return jsonify({'message': 'All fields are required'}), 400
+
+    # Check if the email is already registered
+    existing_admin = Admin.query.filter_by(email=email).first()
+    if existing_admin:
+        return jsonify({'message': 'Email already registered'}), 400
+
+    # Create a new Admin instance and add it to the database
+    new_admin = Admin(
+        email=email,
+        password=bcrypt_sha256.hash(password),
+        first_name=first_name,
+        last_name=last_name,
+        phone_number=phone_number
+    )
+    db.session.add(new_admin)
+    db.session.commit()
+
+    return jsonify({'message': 'Admin created successfully'}), 200
 
 
 if __name__ == "__main__":

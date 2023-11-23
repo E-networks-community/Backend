@@ -6,6 +6,55 @@ from sqlalchemy import BigInteger, select, join
 db = SQLAlchemy()
 
 
+class Admin(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    email = db.Column(db.String(255), unique=True,
+                      nullable=False, index=True)
+    password = db.Column(db.String(255), nullable=False)
+    first_name = db.Column(db.String(50), nullable=False)
+    last_name = db.Column(db.String(50), nullable=False)
+    phone_number = db.Column(db.String(20), index=True)
+    role_id = db.Column(db.Integer, db.ForeignKey(
+        'role.id'), nullable=False, index=True, default=2)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    modified_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def __repr__(self):
+        return f"<Admin {self.first_name} + {self.last_name}>"
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "email": self.email,
+            "first_name": self.first_name,
+            "last_name": self.last_name,
+            "phone_number": self.phone_number,
+            "role_id": self.role_id,
+            "created_at": str(self.created_at),
+            "modified_at": str(self.modified_at),
+        }
+
+# Admin Logs
+class AdminLog(db.Model):
+    __tablename__ = 'adminlogs'
+    id = db.Column(db.Integer, primary_key=True)
+    admin_id = db.Column(db.Integer, db.ForeignKey(
+        'admin.id'), nullable=False, index=True)
+    action = db.Column(db.String(255), nullable=False)
+    timestamp = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def __repr__(self):
+        return f"<AdminLog {self.admin_id} + {self.action}>"
+        
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "admin_id": self.admin_id,
+            "action": self.action,
+            "timestamp": str(self.timestamp),
+        }
+
+
 class Hire(db.Model):
     __tablename__ = 'hires'
     id = db.Column(db.Integer, primary_key=True)
@@ -52,7 +101,7 @@ class Hire(db.Model):
             "next_of_kin_email": self.next_of_kin_email,
             "profile_image": self.profile_image,
             "to_work_state": self.to_work_state,
-            "hire_status": self.hire_status,
+            "hire_status": str(self.hire_status),
         }
 
 
