@@ -34,6 +34,7 @@ class Admin(db.Model):
             "modified_at": str(self.modified_at),
         }
 
+
 # Admin Logs
 class AdminLog(db.Model):
     __tablename__ = 'adminlogs'
@@ -103,6 +104,36 @@ class Hire(db.Model):
             "to_work_state": self.to_work_state,
             "hire_status": str(self.hire_status),
         }
+
+    # function to return statistical data for the user in the AmonHires
+    @classmethod
+    def get_total_hires(cls):
+        return cls.query.count()
+
+    @classmethod
+    def get_total_hires_per_state(cls, state_name):
+        return cls.query.filter_by(state=state_name).count()
+
+    @classmethod
+    def get_total_hires_per_lga(cls, lga_name):
+        return cls.query.filter_by(local_government=lga_name).count()
+
+    @classmethod
+    def get_total_hires_per_ward(cls, ward_name):
+        return cls.query.filter_by(ward=ward_name).count()
+
+    # function to return all the data aboce for total hires, state, lga and ward
+    @classmethod
+    def get_total_hires_data(cls):
+        return {
+            "total_hires": cls.get_total_hires(),
+            # "total_hires_per_state": cls.get_total_hires_per_state(),
+            # "total_hires_per_lga": cls.get_total_hires_per_lga(),
+            # "total_hires_per_ward": cls.get_total_hires_per_ward(),
+        }
+    
+    
+
 
 
 class AmonHire(db.Model):

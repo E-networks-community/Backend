@@ -3010,6 +3010,16 @@ def show_applications():
 
     # Return the list of application data as a JSON response
     return jsonify(intern_data)
+@app.route('/show-applications/ammon', methods=['GET'])
+def show_applications_ammon():
+    # Query the database to get all applications
+    applications = AmonHire.query.all()
+
+    # Create a list of dictionaries containing data for each application
+    intern_data = [hire.to_dict() for hire in applications]
+
+    # Return the list of application data as a JSON response
+    return jsonify(intern_data)
 
 # Create an admin according to the Admin model
 @app.route("/jobs/admin/create", methods=["POST"])
@@ -3148,11 +3158,11 @@ def edit_admin():
 @app.route("/jobs/admin/create", methods=["GET"])
 def pre_create_admin():
     # Validate and process the input data
-    email = "legadax@gmail.com"
-    password = "Aldorax@2023"
-    first_name = "Emmanuel"
-    last_name = "Appah"
-    phone_number = "09066438709"
+    email = "admin@enet.com"
+    password = "admin@enet.com"
+    first_name = "Enetworks"
+    last_name = "Admin"
+    phone_number = "None for now"
 
     if not all([email, password, first_name, last_name, phone_number]):
         return jsonify({'message': 'All fields are required'}), 400
@@ -3175,6 +3185,19 @@ def pre_create_admin():
 
     return jsonify({'message': 'Admin created successfully'}), 200
 
+# Route to get the stats from the amonhires table
+@app.route("/jobs/admin/stats", methods=["GET"])
+def get_stats():
+    total_hires_data = Hire.get_total_hires_data()
+
+    # Convert the data to JSON and return the response
+    return jsonify(total_hires_data)
+@app.route("/jobs/admin/stats/ammon", methods=["GET"])
+def get_stats_ammon():
+    total_hires_data = Hire.get_total_hires_data()
+
+    # Convert the data to JSON and return the response
+    return jsonify(total_hires_data)
 
 if __name__ == "__main__":
     app.run(debug=True)
