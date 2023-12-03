@@ -46,7 +46,7 @@ class AdminLog(db.Model):
 
     def __repr__(self):
         return f"<AdminLog {self.admin_id} + {self.action}>"
-        
+
     def to_dict(self):
         return {
             "id": self.id,
@@ -59,7 +59,7 @@ class AdminLog(db.Model):
 class Hire(db.Model):
     __tablename__ = 'hires'
     id = db.Column(db.Integer, primary_key=True)
-    email = db.Column(db.String(255), unique=True,
+    email = db.Column(db.String(255),
                       nullable=False, index=True)
     phone_number = db.Column(db.String(20), index=True)
     active_contact_address = db.Column(db.String(255), index=True)
@@ -78,9 +78,8 @@ class Hire(db.Model):
     profile_image = db.Column(db.TEXT, default=None, index=True)
     to_work_state = db.Column(db.String(100), index=True)
     hire_status = db.Column(db.String(100), index=True)
-    agent_account_email = db.Column(db.String(100), index=True, unique=True)
-    agent_account_id = db.Column(db.String(100), index=True, unique=True)
-    
+    agent_account_email = db.Column(db.String(100), index=True)
+    agent_account_id = db.Column(db.String(100), index=True)
 
     def to_dict(self):
         return {
@@ -131,15 +130,12 @@ class Hire(db.Model):
             # "total_hires_per_lga": cls.get_total_hires_per_lga(),
             # "total_hires_per_ward": cls.get_total_hires_per_ward(),
         }
-    
-    
-
 
 
 class AmonHire(db.Model):
     __tablename__ = 'amonhires'
     id = db.Column(db.Integer, primary_key=True)
-    email = db.Column(db.String(255), unique=True,
+    email = db.Column(db.String(255),
                       nullable=False, index=True)
     phone_number = db.Column(db.String(20), index=True)
     active_contact_address = db.Column(db.String(255), index=True)
@@ -158,9 +154,8 @@ class AmonHire(db.Model):
     profile_image = db.Column(db.TEXT, default=None, index=True)
     to_work_state = db.Column(db.String(100), index=True)
     hire_status = db.Column(db.String(100), index=True)
-    agent_account_email = db.Column(db.String(100), index=True, unique=True)
-    agent_account_id = db.Column(db.String(100), index=True, unique=True)
-    
+    agent_account_email = db.Column(db.String(100), index=True)
+    agent_account_id = db.Column(db.String(100), index=True)
 
     def to_dict(self):
         return {
