@@ -2867,6 +2867,7 @@ def register_for_hire():
     agent_account_email = request.form.get('agent_account_email')
     agent_account_id = request.form.get('agent_account_id')
     profile_image = request.files.get('profile_image')
+    preferred_position = request.files.get('preferred_position', None)
 
     if not all([email, phone_number, active_contact_address, state, local_government, ward, guarantor_name,
                 language, position, gender, next_of_kin_name, next_of_kin_phone_number,
@@ -2902,6 +2903,7 @@ def register_for_hire():
         guarantor_phone_number=guarantor_phone_number,
         language=language,
         position=position,
+        preferred_position=preferred_position,
         gender=gender,
         next_of_kin_name=next_of_kin_name,
         next_of_kin_phone_number=next_of_kin_phone_number,
@@ -2944,6 +2946,7 @@ def amon_register_for_hire():
     agent_account_email = request.form.get('agent_account_email')
     agent_account_id = request.form.get('agent_account_id')
     profile_image = request.files.get('profile_image')
+    preferred_position = request.files.get('preferred_position', None)
 
     if not all([email, phone_number, active_contact_address, state, local_government, ward, guarantor_name,
                 language, position, gender, next_of_kin_name, next_of_kin_phone_number,
@@ -2979,6 +2982,7 @@ def amon_register_for_hire():
         guarantor_phone_number=guarantor_phone_number,
         language=language,
         position=position,
+        preferred_position=preferred_position,
         gender=gender,
         next_of_kin_name=next_of_kin_name,
         next_of_kin_phone_number=next_of_kin_phone_number,

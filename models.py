@@ -80,6 +80,7 @@ class Hire(db.Model):
     hire_status = db.Column(db.String(100), index=True)
     agent_account_email = db.Column(db.String(100), index=True)
     agent_account_id = db.Column(db.String(100), index=True)
+    preferred_position = db.Column(db.String(100), index=True)
 
     def to_dict(self):
         return {
@@ -156,6 +157,7 @@ class AmonHire(db.Model):
     hire_status = db.Column(db.String(100), index=True)
     agent_account_email = db.Column(db.String(100), index=True)
     agent_account_id = db.Column(db.String(100), index=True)
+    preferred_position = db.Column(db.String(100), index=True)
 
     def to_dict(self):
         return {
