@@ -1,7 +1,6 @@
 from io import StringIO, BytesIO
 import pandas as pd
 import zipfile
-from flask import jsonify
 from sqlalchemy.exc import SQLAlchemyError
 from functools import wraps
 import json
@@ -2886,10 +2885,10 @@ def register_for_hire():
     if gender not in GENDER:
         return jsonify({'message': 'Invalid Gender'})
 
-    # Check if the email is already registered
-    existing_hire = Hire.query.filter_by(email=email).first()
-    if existing_hire:
-        return jsonify({'message': 'Email already registered'}), 400
+    # # Check if the email is already registered
+    # existing_hire = Hire.query.filter_by(email=email).first()
+    # if existing_hire:
+    #     return jsonify({'message': 'Email already registered'}), 400
 
     # Create a new Hire instance and add it to the database
     new_hire = Hire(
@@ -2924,6 +2923,8 @@ def register_for_hire():
 
     return jsonify({'message': 'Registration successful'}), 200
 # Hire register route based off the hire table in the models.py file
+
+
 @app.route('/register_for_hire/ammon', methods=['POST'])
 def amon_register_for_hire():
     # Validate and process the input data
@@ -2965,10 +2966,10 @@ def amon_register_for_hire():
     if gender not in GENDER:
         return jsonify({'message': 'Invalid Gender'})
 
-    # Check if the email is already registered
-    existing_hire = AmonHire.query.filter_by(email=email).first()
-    if existing_hire:
-        return jsonify({'message': 'Email already registered'}), 400
+    # # Check if the email is already registered
+    # existing_hire = AmonHire.query.filter_by(email=email).first()
+    # if existing_hire:
+    #     return jsonify({'message': 'Email already registered'}), 400
 
     # Create a new Hire instance and add it to the database
     new_hire = AmonHire(
@@ -3014,6 +3015,8 @@ def show_applications():
 
     # Return the list of application data as a JSON response
     return jsonify(intern_data)
+
+
 @app.route('/show-applications/ammon', methods=['GET'])
 def show_applications_ammon():
     # Query the database to get all applications
@@ -3026,6 +3029,8 @@ def show_applications_ammon():
     return jsonify(intern_data)
 
 # Create an admin according to the Admin model
+
+
 @app.route("/jobs/admin/create", methods=["POST"])
 def create_jobs_admin():
     # Validate and process the input data
@@ -3055,6 +3060,7 @@ def create_jobs_admin():
     db.session.commit()
 
     return jsonify({'message': 'Admin created successfully'}), 200
+
 
 @app.route("/jobs/admin/login", methods=["POST"])
 def login_jobs_admin():
@@ -3110,52 +3116,54 @@ def get_dashboard():
     return jsonify(user_data), 200
 
 # Edit admin data
-@app.route("/jobs/admin/edit", methods=["POST"])
-@jwt_required()
-def edit_admin():
-    user_id = get_jwt_identity()
 
-    # Query the database to fetch the user's data
-    user = Admin.query.filter_by(id=user_id).first()
 
-    if not user:
-        return jsonify(message='User not found'), 404
+# @app.route("/jobs/admin/edit", methods=["POST"])
+# @jwt_required()
+# def edit_admin():
+#     user_id = get_jwt_identity()
 
-    # Validate and process the input data
-    email = request.form.get('email')
-    password = request.form.get('password')
-    first_name = request.form.get('first_name')
-    last_name = request.form.get('last_name')
-    phone_number = request.form.get('phone_number')
+#     # Query the database to fetch the user's data
+#     user = Admin.query.filter_by(id=user_id).first()
 
-    if not all([email, password, first_name, last_name, phone_number]):
-        return jsonify({'message': 'All fields are required'}), 400
+#     if not user:
+#         return jsonify(message='User not found'), 404
 
-    # Check if the email is already registered
-    existing_admin = Admin.query.filter_by(email=email).first()
-    if existing_admin:
-        return jsonify({'message': 'Email already registered'}), 400
+#     # Validate and process the input data
+#     email = request.form.get('email')
+#     password = request.form.get('password')
+#     first_name = request.form.get('first_name')
+#     last_name = request.form.get('last_name')
+#     phone_number = request.form.get('phone_number')
 
-    # Check if the password is correct
-    if not bcrypt_sha256.verify(password, user.password):
-        return jsonify({'message': 'Wrong password'}), 400
+#     if not all([email, password, first_name, last_name, phone_number]):
+#         return jsonify({'message': 'All fields are required'}), 400
 
-    # Update the user's data
-    if email is not None:
-        user.email = email
-    if password is not None:
-        user.password = bcrypt_sha256.hash(password)
-    if first_Name is not None:
-        user.first_name = first_name
-    if last_name is not None:
-        user.last_name = last_name
-    if phone_number is not None:
-        user.phone_number = phone_number
+#     # Check if the email is already registered
+#     existing_admin = Admin.query.filter_by(email=email).first()
+#     if existing_admin:
+#         return jsonify({'message': 'Email already registered'}), 400
 
-    db.session.add(user)
-    db.session.commit()
+#     # Check if the password is correct
+#     if not bcrypt_sha256.verify(password, user.password):
+#         return jsonify({'message': 'Wrong password'}), 400
 
-    return jsonify({'message': 'User data updated successfully'}), 200
+#     # Update the user's data
+#     if email is not None:
+#         user.email = email
+#     if password is not None:
+#         user.password = bcrypt_sha256.hash(password)
+#     if 'first_Name' is not None:
+#         user.first_name = first_name
+#     if last_name is not None:
+#         user.last_name = last_name
+#     if phone_number is not None:
+#         user.phone_number = phone_number
+
+#     db.session.add(user)
+#     db.session.commit()
+
+#     return jsonify({'message': 'User data updated successfully'}), 200
 
 
 # api route to pre cretae an admin account
@@ -3190,18 +3198,272 @@ def pre_create_admin():
     return jsonify({'message': 'Admin created successfully'}), 200
 
 # Route to get the stats from the amonhires table
+
+
 @app.route("/jobs/admin/stats", methods=["GET"])
 def get_stats():
     total_hires_data = Hire.get_total_hires_data()
 
     # Convert the data to JSON and return the response
     return jsonify(total_hires_data)
+
+
 @app.route("/jobs/admin/stats/ammon", methods=["GET"])
 def get_stats_ammon():
     total_hires_data = Hire.get_total_hires_data()
 
     # Convert the data to JSON and return the response
     return jsonify(total_hires_data)
+
+
+@app.route("/interns/agent-purchases", methods=['POST'])
+# @jwt_required()
+def purchase_for_agent():
+    # user_id = get_jwt_identity()
+    # user = User.query.filter_by(id=user_id).first()
+
+    # if user is None:
+    #     return jsonify(message="No user exists in the database")
+
+    data = request.json
+
+    agentEmail = data.get('email')
+    totalAmountOfCards = data.get('amount')
+    agentPhone = data.get('phone_number')
+    agentName = data.get("full_name")
+
+    # Unique token that will link the data from the requests and then be used to track payments made.
+    # It should be a hashed token consisting of the email, phone number, and the name of the user with a maximum of 7 characters including numbers all uppercase.
+    unique_token = str(agentEmail) + str(agentPhone) + str(agentName)
+    hashed_token = bcrypt_sha256.hash(unique_token)
+    # get the last 7 values of the hashed_token and make the alphabets in the uppercase
+    upper_hashed_token = hashed_token[-7:].upper()
+    print(hashed_token)
+    print(upper_hashed_token)
+    return jsonify(message="Token generated successfully", hashed_token=hashed_token)
+
+
+@app.route('/download-applicants-csv', methods=['GET'])
+def download_applicatnts_csv():
+    # Create separate CSV files for interns and mobilizers, grouped by state
+    # Iterate through role IDs (4 for mobilizers, 5 for interns)
+
+    users = AmonHire.query.all()
+
+    # Create a list of dictionaries containing data for each user
+    user_data = []
+    for user in users:
+        user_info = {
+            'Email': user.email,
+            'Phone Number': user.phone_number,
+        }
+        user_data.append(user_info)
+
+    if user_data:
+        # Create a DataFrame from the list of dictionaries
+        df = pd.DataFrame(user_data)
+
+        # Create a BytesIO buffer to hold the CSV file
+        csv_buffer = BytesIO()
+
+        # Convert the DataFrame to a CSV string and write it to the buffer
+        df.to_csv(csv_buffer, index=False, encoding="utf-8")
+
+        # Set the buffer's position to the beginning
+        csv_buffer.seek(0)
+
+        # Define the file name based on the role and state
+        file_name = 'RQ_WISDOM_data.csv'
+
+        # Send the CSV file as a response with appropriate headers
+        return send_file(
+            csv_buffer,
+            as_attachment=True,
+            download_name=file_name,
+            mimetype='text/csv'
+        )
+
+    # Return a response if no data was found
+    return "No data found for download."
+
+
+@app.route('/process_emails', methods=["GET"])
+def process_emails():
+    try:
+        file_path = 'new_emails.txt'  # Update with the actual path to your file
+
+        # Read emails from the file
+        with open(file_path, 'r') as file:
+            emails = [line.strip() for line in file.readlines()]
+
+        # Create lists to store emails that exist and don't exist in the database
+        emails_exist = []
+        emails_not_exist = []
+
+        # Check each email in the database
+        for email in emails:
+            hire = Hire.query.filter_by(agent_account_email=email).first()
+            if hire:
+                emails_exist.append(email)
+            else:
+                emails_not_exist.append(email)
+
+        # Generate a new text file with the results
+        result_txt = f"emails_exist.txt\n{'-' * 20}\n" + '\n'.join(emails_exist) + \
+                     f"\n\nemails_not_exist.txt\n{'-' * 20}\n" + \
+            '\n'.join(emails_not_exist)
+
+        # Save the result to a file (optional)
+        with open('news.txt', 'w') as result_file:
+            result_file.write(result_txt)
+
+        # Return the result as a response
+        return result_txt, 200, {'Content-Type': 'text/plain'}
+
+    except Exception as e:
+        return f"An error occurred: {str(e)}", 500
+
+
+@app.route('/process_and_check_emails', methods=["GET"])
+def process_and_check_emails():
+    try:
+        file_path = 'existing-emails.txt'  # Update with the actual path to your file
+
+        # Read emails from the file
+        with open(file_path, 'r') as file:
+            emails = [line.strip() for line in file.readlines()]
+
+        # Create lists to store emails with successful API responses and unsuccessful responses
+        success_responses = []
+        unsuccessful_responses = []
+
+        # API endpoint for testing purposes; replace with your actual API endpoint
+        api_endpoint = 'https://enetworkspay.com/confirm_screening.php'
+
+        # Loop through each email and make an API request
+        for email in emails:
+            api_data = {'email': email}
+
+            # Make the API request with form data
+            response = requests.post(api_endpoint, data=api_data)
+
+            # Check the response status
+            if response.status_code == 200 and response.json().get('status') == 'success':
+                success_responses.append(email)
+            else:
+                unsuccessful_responses.append(email)
+
+        # Generate a new text file with the results
+        result_txt = f"success_responses.txt\n{'-' * 20}\n" + '\n'.join(success_responses) + \
+                     f"\n\nunsuccessful_responses.txt\n{'-' * 20}\n" + \
+            '\n'.join(unsuccessful_responses)
+
+        # Save the result to a file (optional)
+        with open('verifcation_list.txt', 'w') as result_file:
+            result_file.write(result_txt)
+
+        # Return the result as a response
+        return result_txt, 200, {'Content-Type': 'text/plain'}
+
+    except Exception as e:
+        return f"An error occurred: {str(e)}", 500
+
+
+@app.route("/check_data", methods=["GET"])
+def check_data_for_user():
+    csv_file_path = 'successful_responses.csv'
+    try:
+        # Read emails from the CSV file
+        df = pd.read_csv(csv_file_path)
+        emails = df['email'].tolist()
+
+        # Query the Hire table for each email and collect the data
+        user_data = []
+        for email in emails:
+            hire_record = Hire.query.filter_by(email=email).first()
+            if hire_record:
+                user_data.append({
+                    'email': hire_record.email,
+                    'phone_number': hire_record.phone_number,
+                    'active_contact_address': hire_record.active_contact_address,
+                    'state': hire_record.state,
+                    'local_government': hire_record.local_government,
+                    'ward': hire_record.ward,
+                    'guarantor_name': hire_record.guarantor_name,
+                    'guarantor_phone_number': hire_record.guarantor_phone_number,
+                    'language': hire_record.language,
+                    'position': hire_record.position,
+                    'gender': hire_record.gender,
+                    'to_work_state': hire_record.to_work_state,
+                    'agent_account_email': hire_record.agent_account_email,
+                    'agent_account_id': hire_record.agent_account_id,
+                    'preferred_position': hire_record.preferred_position
+                })
+
+        if user_data:
+            # Create a new DataFrame from the collected data
+            user_data_df = pd.DataFrame(user_data)
+
+            # Save the DataFrame to a new CSV file
+            output_csv_path = 'output_user_data.csv'
+            user_data_df.to_csv(output_csv_path, index=False)
+
+            return jsonify({'success': True, 'message': 'User data successfully retrieved and saved.'})
+        else:
+            return jsonify({'success': False, 'message': 'No user data found for the provided emails.'})
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'Error: {str(e)}'})
+
+
+@app.route("/all_users", methods=["GET"])
+def all_users():
+    try:
+        # Query all users from the Hire table
+        all_users = Hire.query.all()
+
+        if all_users:
+            # Extract emails from all users
+            emails = [user.email for user in all_users]
+
+            # Save emails to a file
+            output_file_path = 'all_user_emails.txt'
+            with open(output_file_path, 'w') as file:
+                for email in emails:
+                    file.write(f"{email}\n")
+
+            return jsonify({'success': True, 'message': 'All user emails successfully retrieved and saved.'})
+        else:
+            return jsonify({'success': False, 'message': 'No users found in the Hire table.'})
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'Error: {str(e)}'})
+
+
+@app.route('/hiredusers', methods=['GET'])
+@jwt_required()
+@require_role(['Admin', 'Super Admin', "Executives"])
+def get_all_users_hired():
+    try:
+        users = Hire.query.all()
+        user_data = []
+
+        for user in users:
+
+            user_item = {
+                'id': user.id,
+                'email': user.email,
+                "agent_account_email": user.agent_account_email,
+                "agent_account_id": user.agent_account_id,
+                "preferred_position": user.preferred_position,
+                "position": user.position
+            }
+
+            user_data.append(user_item)
+
+        return jsonify(user_data), 200
+    except Exception as e:
+        print(e)
+        return jsonify(message='An error occurred while fetching users'), 500
+
 
 if __name__ == "__main__":
     app.run(debug=True)
