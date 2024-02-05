@@ -25,7 +25,7 @@ class ApplicationConfig:
     password = os.environ.get("PASSWORD")
     localhost = os.environ.get("LOCALHOST")
     dbname = os.environ.get("DBNAME")
-    SQLALCHEMY_DATABASE_URI = "postgresql://postgres:oXMY8Lu55hbeyGFDYI2w@containers-us-west-168.railway.app:6965/railway"
+    SQLALCHEMY_DATABASE_URI = "postgresql://postgres:ffCGeAGECGccfAB6cEAFEFC3B4E5g6F5@monorail.proxy.rlwy.net:44687/railway"
 
     DATABASE_ENGINE = create_engine(SQLALCHEMY_DATABASE_URI)
     SESSION_TYPE = os.environ.get("SESSION_TYPE")
